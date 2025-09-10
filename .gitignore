@@ -35,3 +35,41 @@ out/
 
 ### VS Code ###
 .vscode/
+
+# Spring Boot
+application.properties
+application-*.properties
+*.env
+local.properties
+
+# Gradle
+.gradle/
+build/
+gradlew
+gradlew.bat
+gradle-wrapper.jar
+gradle-wrapper.properties
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.code-workspace
+
+# Log files
+*.log
+logs/
+
+# Build and dependency directories
+target/
+lib/
+out/
+
+# Database
+*.sql
+*.db
+
+# Miscellaneous
+.DS_Store
+*.swp
+*.swo

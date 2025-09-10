@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class UserService {
@@ -30,6 +31,22 @@ public class UserService {
             user.setRole("USER");
         }
         return userRepository.save(user);
+    }
+
+    public User registerOrUpdateGoogleUser(String email, String name) {
+        Optional<User> existingUser = userRepository.findByEmail(email);
+        if (existingUser.isPresent()) {
+            User user = existingUser.get();
+            user.setName(name); // Cập nhật tên nếu cần
+            return userRepository.save(user);
+        } else {
+            User newUser = new User();
+            newUser.setEmail(email);
+            newUser.setName(name);
+            newUser.setPassword(passwordEncoder.encode(UUID.randomUUID().toString())); // Mật khẩu ngẫu nhiên
+            newUser.setRole("USER");
+            return userRepository.save(newUser);
+        }
     }
 
     public Optional<User> findByEmail(String email) {
