@@ -60,7 +60,6 @@ logs/
 # Build and dependency directories
 target/
 lib/
-out/
 
 # Database
 *.sql
