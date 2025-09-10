@@ -20,9 +20,9 @@ public class DemoApplication implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        User user = new User();
-        user.setName("Test User");
-        userRepository.save(user);
-        System.out.println("User saved: " + user.getName());
+//        User user = new User();
+//        user.setName("Test User");
+//        userRepository.save(user);
+//        System.out.println("User saved: " + user.getName());
     }
 }

@@ -1,8 +1,10 @@
 package com.example.demo.controller;
 
 import com.example.demo.entity.User;
+import com.example.demo.service.RefreshTokenService;
 import com.example.demo.service.UserService;
 import com.example.demo.util.JwtUtil;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -30,9 +32,11 @@ public class AuthController {
     @Autowired
     private JwtUtil jwtUtil;
 
-    // Đăng ký
+    @Autowired
+    private RefreshTokenService refreshTokenService;
+
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody User user) {
+    public ResponseEntity<?> register(@Valid @RequestBody User user) {
         try {
             User registeredUser = userService.registerUser(user);
             return ResponseEntity.ok(registeredUser);
@@ -41,7 +45,6 @@ public class AuthController {
         }
     }
 
-    // Đăng nhập
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody User loginUser) {
         try {
@@ -54,9 +57,27 @@ public class AuthController {
 
         UserDetails userDetails = userService.findByEmail(loginUser.getEmail()).orElseThrow();
         String jwt = jwtUtil.generateToken(userDetails.getUsername());
+        String refreshToken = refreshTokenService.createRefreshToken((User) userDetails).getToken();
 
         Map<String, String> response = new HashMap<>();
-        response.put("token", jwt);
+        response.put("accessToken", jwt);
+        response.put("refreshToken", refreshToken);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<?> refreshToken(@RequestBody Map<String, String> request) {
+        String refreshToken = request.get("refreshToken");
+        if (refreshToken == null || !refreshTokenService.validateRefreshToken(refreshToken)) {
+            return ResponseEntity.badRequest().body("Invalid or expired refresh token");
+        }
+
+        String username = jwtUtil.extractUsername(refreshToken);
+        UserDetails userDetails = userService.findByEmail(username).orElseThrow();
+        String newAccessToken = jwtUtil.generateToken(userDetails.getUsername());
+
+        Map<String, String> response = new HashMap<>();
+        response.put("accessToken", newAccessToken);
         return ResponseEntity.ok(response);
     }
 }

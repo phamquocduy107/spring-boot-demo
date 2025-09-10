@@ -2,8 +2,9 @@ package com.example.demo.service;
 
 import com.example.demo.entity.User;
 import com.example.demo.repository.UserRepository;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy; // Thêm import này
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -17,24 +18,24 @@ public class UserService {
     private UserRepository userRepository;
 
     @Autowired
-    @Lazy // Thêm annotation này để phá vỡ vòng tham chiếu
+    @Lazy
     private BCryptPasswordEncoder passwordEncoder;
 
-    // Create (đăng ký)
-    public User registerUser(User user) {
+    public User registerUser(@Valid User user) {
         if (userRepository.findByEmail(user.getEmail()).isPresent()) {
             throw new RuntimeException("Email already exists");
         }
-        user.setPassword(passwordEncoder.encode(user.getPassword())); // Mã hóa password
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        if (user.getRole() == null) {
+            user.setRole("USER");
+        }
         return userRepository.save(user);
     }
 
-    // Tìm user theo email cho đăng nhập
     public Optional<User> findByEmail(String email) {
         return userRepository.findByEmail(email);
     }
 
-    // Các phương thức CRUD cũ
     public User createUser(User user) {
         return userRepository.save(user);
     }

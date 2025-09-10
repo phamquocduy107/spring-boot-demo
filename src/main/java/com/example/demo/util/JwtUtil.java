@@ -4,9 +4,9 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import jakarta.annotation.PostConstruct;
 
 import java.security.Key;
 import java.util.Date;
@@ -22,6 +22,9 @@ public class JwtUtil {
 
     private Key signingKey;
 
+    private long ACCESS_TOKEN_VALIDITY = 1000 * 60 * 60 * 10;
+    private long REFRESH_TOKEN_VALIDITY = 1000 * 60 * 60 * 24 * 7;
+
     @PostConstruct
     public void init() {
         if (SECRET_KEY == null || SECRET_KEY.trim().isEmpty()) {
@@ -29,6 +32,7 @@ public class JwtUtil {
         }
         signingKey = Keys.hmacShaKeyFor(SECRET_KEY.getBytes());
     }
+
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
@@ -53,13 +57,18 @@ public class JwtUtil {
 
     public String generateToken(String username) {
         Map<String, Object> claims = new HashMap<>();
-        return createToken(claims, username);
+        return createToken(claims, username, ACCESS_TOKEN_VALIDITY);
     }
 
-    private String createToken(Map<String, Object> claims, String subject) {
+    public String generateRefreshToken(String username) {
+        Map<String, Object> claims = new HashMap<>();
+        return createToken(claims, username, REFRESH_TOKEN_VALIDITY);
+    }
+
+    private String createToken(Map<String, Object> claims, String subject, long validity) {
         return Jwts.builder().setClaims(claims).setSubject(subject)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10))
+                .setExpiration(new Date(System.currentTimeMillis() + validity))
                 .signWith(signingKey, SignatureAlgorithm.HS256).compact();
     }
 
