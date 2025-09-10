@@ -44,7 +44,6 @@ local.properties
 
 # Gradle
 .gradle/
-build/
 gradlew
 gradlew.bat
 gradle-wrapper.jar
@@ -52,8 +51,6 @@ gradle-wrapper.properties
 
 # IDE
 .idea/
-*.iml
-.vscode/
 *.code-workspace
 
 # Log files
