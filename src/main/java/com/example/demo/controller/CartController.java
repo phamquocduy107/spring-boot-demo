@@ -1,12 +1,16 @@
 package com.example.demo.controller;
 
 import com.example.demo.entity.Cart;
+import com.example.demo.entity.User;
 import com.example.demo.service.CartService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import java.util.Optional;
+import com.example.demo.dto.CartDTO;
+import com.example.demo.mapper.DtoMapper;
 
 @RestController
 @RequestMapping("/api/cart")
@@ -17,39 +21,55 @@ public class CartController {
 
     // For simplicity, accept userId as request param/body in this example
     @GetMapping
-    public ResponseEntity<Cart> getCart(@RequestParam Long userId) {
-        Optional<Cart> cart = cartService.getActiveCart(userId);
-        return cart.map(ResponseEntity::ok)
+    public ResponseEntity<CartDTO> getCart(@AuthenticationPrincipal User currentUser) {
+        Optional<Cart> cart = cartService.getActiveCart(currentUser.getId());
+        return cart.map(c -> ResponseEntity.ok(DtoMapper.toCartDTO(c)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping("/items")
-    public ResponseEntity<Cart> addItem(@RequestParam Long userId,
+    public ResponseEntity<CartDTO> addItem(@AuthenticationPrincipal User currentUser,
                                         @RequestParam Long productId,
                                         @RequestParam int quantity) {
-        Cart updated = cartService.addItem(userId, productId, quantity);
-        return ResponseEntity.ok(updated);
+        try {
+            Cart updated = cartService.addItem(currentUser.getId(), productId, quantity);
+            return ResponseEntity.ok(DtoMapper.toCartDTO(updated));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @PutMapping("/items/{productId}")
-    public ResponseEntity<Cart> updateQty(@RequestParam Long userId,
+    public ResponseEntity<CartDTO> updateQty(@AuthenticationPrincipal User currentUser,
                                           @PathVariable Long productId,
                                           @RequestParam int quantity) {
-        Cart updated = cartService.updateQuantity(userId, productId, quantity);
-        return ResponseEntity.ok(updated);
+        try {
+            Cart updated = cartService.updateQuantity(currentUser.getId(), productId, quantity);
+            return ResponseEntity.ok(DtoMapper.toCartDTO(updated));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @DeleteMapping("/items/{productId}")
-    public ResponseEntity<Void> removeItem(@RequestParam Long userId,
+    public ResponseEntity<Void> removeItem(@AuthenticationPrincipal User currentUser,
                                            @PathVariable Long productId) {
-        cartService.removeItem(userId, productId);
-        return ResponseEntity.noContent().build();
+        try {
+            cartService.removeItem(currentUser.getId(), productId);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @DeleteMapping
-    public ResponseEntity<Void> clear(@RequestParam Long userId) {
-        cartService.clear(userId);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<Void> clear(@AuthenticationPrincipal User currentUser) {
+        try {
+            cartService.clear(currentUser.getId());
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 }
 

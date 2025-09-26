@@ -14,6 +14,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -24,9 +26,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private com.example.demo.service.UserService userService;
 
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+        String requestUri = request.getRequestURI();
+        String method = request.getMethod();
         String authorizationHeader = request.getHeader("Authorization");
 
         String username = null;
@@ -34,7 +40,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
             jwt = authorizationHeader.substring(7);
-            username = jwtUtil.extractUsername(jwt);
+            try {
+                username = jwtUtil.extractUsername(jwt);
+            } catch (Exception ex) {
+                log.warn("JWT extractUsername failed for {} {}: {}", method, requestUri, ex.getMessage());
+            }
+        } else {
+            if (authorizationHeader == null) {
+                log.debug("No Authorization header for {} {}", method, requestUri);
+            } else {
+                log.debug("Authorization header present but not Bearer for {} {}", method, requestUri);
+            }
         }
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -45,6 +61,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         userDetails, null, userDetails.getAuthorities());
                 usernamePasswordAuthenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
+                log.debug("Authenticated user '{}' for {} {}", username, method, requestUri);
+            } else {
+                log.debug("JWT validation failed or user not found for {} {} (username={})", method, requestUri, username);
             }
         }
         filterChain.doFilter(request, response);

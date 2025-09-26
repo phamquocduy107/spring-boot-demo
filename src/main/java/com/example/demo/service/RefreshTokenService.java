@@ -6,6 +6,7 @@ import com.example.demo.repository.RefreshTokenRepository;
 import com.example.demo.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -19,6 +20,7 @@ public class RefreshTokenService {
     @Autowired
     private JwtUtil jwtUtil;
 
+    @Transactional
     public RefreshToken createRefreshToken(User user) {
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUser(user);

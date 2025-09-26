@@ -2,8 +2,10 @@ package com.example.demo.service;
 
 import com.example.demo.entity.Cart;
 import com.example.demo.entity.Product;
+import com.example.demo.entity.User;
 import com.example.demo.repository.CartRepository;
 import com.example.demo.repository.ProductRepository;
+import com.example.demo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
@@ -23,6 +25,7 @@ public class CartService {
     @Autowired private CartRepository cartRepository;
     @Autowired private ProductRepository productRepository;
     @Autowired private RedisTemplate<String, Object> redisTemplate;
+    @Autowired private UserRepository userRepository;
 
     private String key(Long userId) { return CART_KEY_PREFIX + userId; }
 
@@ -39,7 +42,10 @@ public class CartService {
     public Cart getOrCreateActiveCart(Long userId) {
         return cartRepository.findByUser_IdAndIsActiveTrue(userId)
                 .orElseGet(() -> {
+                    User user = userRepository.findById(userId)
+                            .orElseThrow(() -> new IllegalArgumentException("User not found"));
                     Cart c = new Cart();
+                    c.setUser(user);
                     c.setIsActive(true);
                     return cartRepository.save(c);
                 });
@@ -48,6 +54,9 @@ public class CartService {
     @Transactional
     public Cart addItem(Long userId, Long productId, int quantity) {
         Cart cart = getOrCreateActiveCart(userId);
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Quantity must be positive");
+        }
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("Product not found"));
         BigDecimal priceAtAdd = product.getPrice();
@@ -88,8 +97,12 @@ public class CartService {
     }
 
     public Optional<Cart> getActiveCart(Long userId) {
-        return getActiveCartFromCache(userId)
-                .or(() -> cartRepository.findByUser_IdAndIsActiveTrue(userId));
+        // Prefer database as source of truth; cache deserialization may not yield Cart instance
+        Optional<Cart> fromDb = cartRepository.findByUser_IdAndIsActiveTrue(userId);
+        if (fromDb.isPresent()) {
+            return fromDb;
+        }
+        return getActiveCartFromCache(userId);
     }
 
     private void cache(Long userId, Cart cart) {

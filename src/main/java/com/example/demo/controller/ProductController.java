@@ -2,6 +2,8 @@ package com.example.demo.controller;
 
 import com.example.demo.entity.Product;
 import com.example.demo.service.ProductService;
+import com.example.demo.dto.ProductDTO;
+import com.example.demo.mapper.DtoMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,8 +37,8 @@ public class ProductController {
     
     // Get all products
     @GetMapping
-    public ResponseEntity<List<Product>> getAllProducts() {
-        List<Product> products = productService.getAllProducts();
+    public ResponseEntity<List<ProductDTO>> getAllProducts() {
+        List<ProductDTO> products = productService.getAllProducts().stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
     
@@ -45,7 +47,7 @@ public class ProductController {
     public ResponseEntity<?> getProductById(@PathVariable Long id) {
         Optional<Product> product = productService.getProductById(id);
         if (product.isPresent()) {
-            return ResponseEntity.ok(product.get());
+            return ResponseEntity.ok(DtoMapper.toProductDTO(product.get()));
         } else {
             return ResponseEntity.notFound().build();
         }
@@ -56,7 +58,7 @@ public class ProductController {
     public ResponseEntity<?> getProductBySku(@PathVariable String sku) {
         Optional<Product> product = productService.getProductBySku(sku);
         if (product.isPresent()) {
-            return ResponseEntity.ok(product.get());
+            return ResponseEntity.ok(DtoMapper.toProductDTO(product.get()));
         } else {
             return ResponseEntity.notFound().build();
         }
@@ -106,69 +108,69 @@ public class ProductController {
     
     // Get products by category id
     @GetMapping("/category/{id}")
-    public ResponseEntity<List<Product>> getProductsByCategoryId(@PathVariable("id") Long categoryId) {
-        List<Product> products = productService.getProductsByCategoryId(categoryId);
+    public ResponseEntity<List<ProductDTO>> getProductsByCategoryId(@PathVariable("id") Long categoryId) {
+        List<ProductDTO> products = productService.getProductsByCategoryId(categoryId).stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
     
     // Get products by category slug
     @GetMapping("/category/slug/{slug}")
-    public ResponseEntity<List<Product>> getProductsByCategorySlug(@PathVariable String slug) {
-        List<Product> products = productService.getProductsByCategorySlug(slug);
+    public ResponseEntity<List<ProductDTO>> getProductsByCategorySlug(@PathVariable String slug) {
+        List<ProductDTO> products = productService.getProductsByCategorySlug(slug).stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
     
     // Get active products by category id
     @GetMapping("/category/{id}/active")
-    public ResponseEntity<List<Product>> getActiveProductsByCategoryId(@PathVariable("id") Long categoryId) {
-        List<Product> products = productService.getActiveProductsByCategoryId(categoryId);
+    public ResponseEntity<List<ProductDTO>> getActiveProductsByCategoryId(@PathVariable("id") Long categoryId) {
+        List<ProductDTO> products = productService.getActiveProductsByCategoryId(categoryId).stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
     
     // Get products by brand
     @GetMapping("/brand/{brand}")
-    public ResponseEntity<List<Product>> getProductsByBrand(@PathVariable String brand) {
-        List<Product> products = productService.getProductsByBrand(brand);
+    public ResponseEntity<List<ProductDTO>> getProductsByBrand(@PathVariable String brand) {
+        List<ProductDTO> products = productService.getProductsByBrand(brand).stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
     
     // Get active products
     @GetMapping("/active")
-    public ResponseEntity<List<Product>> getActiveProducts() {
-        List<Product> products = productService.getActiveProducts();
+    public ResponseEntity<List<ProductDTO>> getActiveProducts() {
+        List<ProductDTO> products = productService.getActiveProducts().stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
     
     // Get featured products
     @GetMapping("/featured")
-    public ResponseEntity<List<Product>> getFeaturedProducts() {
-        List<Product> products = productService.getFeaturedProducts();
+    public ResponseEntity<List<ProductDTO>> getFeaturedProducts() {
+        List<ProductDTO> products = productService.getFeaturedProducts().stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
     
     // Search products
     @GetMapping("/search")
-    public ResponseEntity<List<Product>> searchProducts(@RequestParam String keyword) {
-        List<Product> products = productService.searchProducts(keyword);
+    public ResponseEntity<List<ProductDTO>> searchProducts(@RequestParam String keyword) {
+        List<ProductDTO> products = productService.searchProducts(keyword).stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
     
     // Get products by price range
     @GetMapping("/price-range")
-    public ResponseEntity<List<Product>> getProductsByPriceRange(
+    public ResponseEntity<List<ProductDTO>> getProductsByPriceRange(
             @RequestParam BigDecimal minPrice, 
             @RequestParam BigDecimal maxPrice) {
-        List<Product> products = productService.getProductsByPriceRange(minPrice, maxPrice);
+        List<ProductDTO> products = productService.getProductsByPriceRange(minPrice, maxPrice).stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
     
     // Get products by price range and category id
     @GetMapping("/price-range/category/{id}")
-    public ResponseEntity<List<Product>> getProductsByPriceRangeAndCategoryId(
+    public ResponseEntity<List<ProductDTO>> getProductsByPriceRangeAndCategoryId(
             @PathVariable("id") Long categoryId,
             @RequestParam BigDecimal minPrice, 
             @RequestParam BigDecimal maxPrice) {
-        List<Product> products = productService.getProductsByPriceRangeAndCategoryId(minPrice, maxPrice, categoryId);
+        List<ProductDTO> products = productService.getProductsByPriceRangeAndCategoryId(minPrice, maxPrice, categoryId).stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
     
@@ -216,22 +218,22 @@ public class ProductController {
     
     // Get low stock products
     @GetMapping("/low-stock")
-    public ResponseEntity<List<Product>> getLowStockProducts(@RequestParam(defaultValue = "10") Integer threshold) {
-        List<Product> products = productService.getLowStockProducts(threshold);
+    public ResponseEntity<List<ProductDTO>> getLowStockProducts(@RequestParam(defaultValue = "10") Integer threshold) {
+        List<ProductDTO> products = productService.getLowStockProducts(threshold).stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
     
     // Get most expensive products
     @GetMapping("/most-expensive")
-    public ResponseEntity<List<Product>> getMostExpensiveProducts() {
-        List<Product> products = productService.getMostExpensiveProducts();
+    public ResponseEntity<List<ProductDTO>> getMostExpensiveProducts() {
+        List<ProductDTO> products = productService.getMostExpensiveProducts().stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
     
     // Get cheapest products
     @GetMapping("/cheapest")
-    public ResponseEntity<List<Product>> getCheapestProducts() {
-        List<Product> products = productService.getCheapestProducts();
+    public ResponseEntity<List<ProductDTO>> getCheapestProducts() {
+        List<ProductDTO> products = productService.getCheapestProducts().stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
     
