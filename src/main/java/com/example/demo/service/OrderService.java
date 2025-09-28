@@ -39,10 +39,11 @@ public class OrderService {
                                        PaymentMethod paymentMethod, BigDecimal shippingFee) {
         
         // 1. Lấy cart của user
-        Cart cart = cartService.getActiveCart(userId);
-        if (cart == null || cart.getItems().isEmpty()) {
+        Optional<Cart> cartOpt = cartService.getActiveCart(userId);
+        if (!cartOpt.isPresent() || cartOpt.get().getItems().isEmpty()) {
             throw new RuntimeException("Cart is empty or not found");
         }
+        Cart cart = cartOpt.get();
 
         // 2. Tạo Order mới
         User user = userRepository.findById(userId)
@@ -90,14 +91,13 @@ public class OrderService {
         payment.setOrder(order);
         order.setPayment(payment);
 
-        // 6. Tính totals
-        order.calculateTotals();
+        // 6. Tính totals (method sẽ được gọi tự động trong @PrePersist)
 
         // 7. Save order
         Order savedOrder = orderRepository.save(order);
 
         // 8. Clear cart
-        cartService.clearCart(userId);
+        cartService.clear(userId);
 
         return new OrderDTO(savedOrder);
     }

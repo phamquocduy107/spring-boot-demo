@@ -1,13 +1,14 @@
-# Test script for User create API
+# Comprehensive API Test Script
+# - Tests all entities: User, Product, Category, Cart, Order
 # - Logs in as admin (from rule.md)
-# - Creates a new user (success)
-# - Repeats create with same email (expect 400 duplicate email)
-# - Tries create without token (expect 401/403)
+# - Performs CRUD operations for each entity
+# - Tests both authorized and unauthorized access
+# - Generates detailed reports per entity
 
 param(
     [string]$BaseUrl = "http://localhost:8080",
     [ValidateSet("Create","GetAll","Get","Update","Delete","All")][string]$Mode = "All",
-    [ValidateSet("User","Product","Category","Cart","All")][string]$Entity = "All",
+    [ValidateSet("User","Product","Category","Cart","Order","All")][string]$Entity = "All",
     [int]$ProductCategoryId = 1
 )
 
@@ -180,12 +181,14 @@ $usersUrl = "$BaseUrl/api/users"
 $productsUrl = "$BaseUrl/api/products"
 $categoriesUrl = "$BaseUrl/api/categories"
 $cartUrl = "$BaseUrl/api/cart"
+$ordersUrl = "$BaseUrl/api/orders"
 
 Write-Host "BaseUrl: $BaseUrl"
 Write-Host "Login URL: $loginUrl"
 Write-Host "Users URL: $usersUrl"
 Write-Host "Categories URL: $categoriesUrl"
 Write-Host "Cart URL: $cartUrl"
+Write-Host "Orders URL: $ordersUrl"
 
 Write-Section "Login as Admin"
 $jwt = Get-AdminJwtToken -LoginUrl $loginUrl
@@ -206,6 +209,7 @@ ${doUser} = ($Entity -eq "User" -or $Entity -eq "All")
 ${doProduct} = ($Entity -eq "Product" -or $Entity -eq "All")
 ${doCategory} = ($Entity -eq "Category" -or $Entity -eq "All")
 ${doCart} = ($Entity -eq "Cart" -or $Entity -eq "All")
+${doOrder} = ($Entity -eq "Order" -or $Entity -eq "All")
 
 # User results
 $create1 = $null
@@ -257,6 +261,30 @@ $cartRemoveItem = $null
 $cartRemoveItemNoAuth = $null
 $cartClear = $null
 $cartClearNoAuth = $null
+
+# Order results
+$oCreateFromCart = $null
+$oCreateFromCartNoAuth = $null
+$oGetById = $null
+$oGetByIdNoAuth = $null
+$oGetByNumber = $null
+$oGetByNumberNoAuth = $null
+$oGetMyOrders = $null
+$oGetMyOrdersNoAuth = $null
+$oUpdateStatus = $null
+$oUpdateStatusNoAuth = $null
+$oUpdateShippingFee = $null
+$oUpdateShippingFeeNoAuth = $null
+$oUpdateTax = $null
+$oUpdateTaxNoAuth = $null
+$oUpdateDiscount = $null
+$oUpdateDiscountNoAuth = $null
+$oUpdateNotes = $null
+$oUpdateNotesNoAuth = $null
+$oGetWithChanges = $null
+$oGetNeedingAttention = $null
+$oGetRecent = $null
+$oGetStatistics = $null
 
 if (${doUser} -and ${doCreate}) {
     # Prepare new user payload
@@ -519,6 +547,95 @@ function New-CategoryPayload {
     }
 }
 
+function New-OrderPayload {
+    return @{
+        shippingAddress = @{
+            fullName = "Test User"
+            phone = "0123456789"
+            addressLine1 = "123 Test Street"
+            city = "Ho Chi Minh City"
+            country = "Vietnam"
+        }
+        paymentMethod = "CASH_ON_DELIVERY"
+        shippingFee = 30000
+    }
+}
+
+function Write-EntityReport {
+    param(
+        [string]$Entity,
+        [string]$BaseUrl,
+        [string]$Mode,
+        [string]$Timestamp,
+        [array]$EntityTests,
+        [array]$EntityFailures,
+        [hashtable]$TestResults
+    )
+    
+    $entityReportsDir = Join-Path $PSScriptRoot "..\guide\reports"
+    $entityDir = Join-Path $entityReportsDir $Entity
+    if (-not (Test-Path $entityDir)) { New-Item -ItemType Directory -Path $entityDir -Force | Out-Null }
+    
+    $entityReportPath = Join-Path $entityDir "Test_Report.md"
+    
+    $entityTotal = ($EntityTests | Where-Object { $null -ne $_ }).Count
+    $entityFailed = $EntityFailures.Count
+    $entityPassed = $entityTotal - $entityFailed
+    $entityRate = if ($entityTotal -gt 0) { [math]::Round(($entityPassed*100.0)/$entityTotal,2) } else { 0 }
+    
+    $entitySummary = @()
+    $entitySummary += "# $Entity Entity Test Report"
+    $entitySummary += ""
+    $entitySummary += "**Date:** $Timestamp"
+    $entitySummary += "**BaseUrl:** $BaseUrl"
+    $entitySummary += "**Mode:** $Mode"
+    $entitySummary += ""
+    $entitySummary += "## Summary"
+    $entitySummary += "- **Total Tests:** $entityTotal"
+    $entitySummary += "- **Passed:** $entityPassed"
+    $entitySummary += "- **Failed:** $entityFailed"
+    $entitySummary += "- **Pass Rate:** $entityRate%"
+    $entitySummary += ""
+    
+    # Add detailed test results
+    $entitySummary += "## Test Results"
+    $entitySummary += ""
+    
+    foreach ($test in $TestResults.GetEnumerator()) {
+        $entitySummary += "- **$($test.Key):** Expected $($test.Value.Expected), Actual: $($test.Value.Actual)"
+    }
+    
+    $entitySummary += ""
+    
+    # Add failure details if any
+    if ($entityFailures.Count -gt 0) {
+        $entitySummary += "## Failed Tests"
+        $entitySummary += ""
+        $i = 1
+        foreach ($failure in $entityFailures) {
+            $entitySummary += "### $i. $($failure.test)"
+            $entitySummary += "- **Expected:** $($failure.expected)"
+            $entitySummary += "- **Actual:** $($failure.actual)"
+            if ($failure.details) {
+                $entitySummary += "- **Details:**"
+                $entitySummary += '```json'
+                $entitySummary += $failure.details
+                $entitySummary += '```'
+            }
+            $entitySummary += ""
+            $i++
+        }
+    } else {
+        $entitySummary += "## Failed Tests"
+        $entitySummary += ""
+        $entitySummary += "No failed tests for $Entity entity."
+        $entitySummary += ""
+    }
+    
+    Set-Content -Path $entityReportPath -Value $entitySummary -Encoding UTF8
+    Write-Host "$Entity report written to $entityReportPath" -ForegroundColor Cyan
+}
+
 $pTargetId = $null
 
 if (${doProduct} -and ${doCreate}) {
@@ -662,7 +779,8 @@ if (${doProduct} -and ${doUpdate} -and $pTargetId) {
     }
 }
 
-if (${doProduct} -and ${doDelete} -and $pTargetId) {
+if (${doProduct} -and ${doDelete} -and $pTargetId -and -not ${doOrder}) {
+    # Only delete product if not testing Order (Order needs product in cart)
     $pIdUrl = "$productsUrl/$pTargetId"
     Write-Section "[Product] Delete (authorized)"
     $pDeleteAuth = Try-InvokeDelete -Uri $pIdUrl -Headers $authHeaders
@@ -1072,6 +1190,328 @@ if (${doCart}) {
     }
 }
 
+# =====================
+# Order workflow tests
+# =====================
+
+$oTargetId = $null
+$oOrderNumber = $null
+
+if (${doOrder} -and ${doCreate}) {
+    # First, ensure we have a product and items in cart for order creation
+    if (-not $pTargetId) {
+        # Create a product for order testing
+        Write-Section "[Order] Create product for order testing"
+        $pPayload = New-ProductPayload -CategoryId $ProductCategoryId
+        $pCreateForOrder = Try-InvokeJsonPost -Uri $productsUrl -Headers $authHeaders -Body $pPayload
+        if ($pCreateForOrder.success -and ($pCreateForOrder.status -eq 200 -or $pCreateForOrder.status -eq 201)) {
+            $pTargetId = $pCreateForOrder.body.id
+            Write-Host "Product created for order testing: id=$pTargetId" -ForegroundColor Green
+        } else {
+            Write-Host "Failed to create product for order testing ($($pCreateForOrder.status))" -ForegroundColor Red
+        }
+    }
+    
+    if ($pTargetId) {
+        Write-Section "[Order] Add item to cart for order creation"
+        $addItemUrl = "$cartUrl/items?productId=$pTargetId&quantity=2"
+        $cartAddForOrder = Try-InvokeJsonPost -Uri $addItemUrl -Headers $authHeaders -Body $null
+        if ($cartAddForOrder.success) {
+            Write-Host "Item added to cart for order creation" -ForegroundColor Green
+        } else {
+            Write-Host "Failed to add item to cart for order creation ($($cartAddForOrder.status))" -ForegroundColor Yellow
+        }
+    }
+
+    Write-Section "[Order] Create Order from Cart (authorized)"
+    $oPayload = New-OrderPayload
+    $oCreateFromCart = Try-InvokeJsonPost -Uri "$ordersUrl/create-from-cart" -Headers $authHeaders -Body $oPayload
+    if ($oCreateFromCart.success -and ($oCreateFromCart.status -eq 200 -or $oCreateFromCart.status -eq 201)) {
+        Write-Host "Order created successfully: id=$($oCreateFromCart.body.id) number=$($oCreateFromCart.body.orderNumber)" -ForegroundColor Green
+        $oTargetId = $oCreateFromCart.body.id
+        $oOrderNumber = $oCreateFromCart.body.orderNumber
+    } else {
+        Write-Host "Order creation failed ($($oCreateFromCart.status)): $($oCreateFromCart.body | ConvertTo-Json -Depth 10)" -ForegroundColor Red
+        $failures += @{
+            test = "Order Create from Cart should be 200/201";
+            expected = "200/201";
+            actual = $oCreateFromCart.status;
+            details = ($oCreateFromCart.body | ConvertTo-Json -Depth 10)
+        }
+    }
+
+    Write-Section "[Order] Create Order from Cart (without token should be 401/403)"
+    $oCreateFromCartNoAuth = Try-InvokeJsonPost -Uri "$ordersUrl/create-from-cart" -Headers @{} -Body $oPayload
+    if (-not $oCreateFromCartNoAuth.success -and ($oCreateFromCartNoAuth.status -eq 401 -or $oCreateFromCartNoAuth.status -eq 403)) {
+        Write-Host "Unauthorized order creation blocked ($($oCreateFromCartNoAuth.status))" -ForegroundColor Green
+    } else {
+        Write-Host "Unexpected unauth order creation result: success=$($oCreateFromCartNoAuth.success) status=$($oCreateFromCartNoAuth.status)" -ForegroundColor Yellow
+        $failures += @{
+            test = "Order Create from Cart without token should be 401/403";
+            expected = "401/403";
+            actual = $oCreateFromCartNoAuth.status;
+            details = if ($oCreateFromCartNoAuth.body) { ($oCreateFromCartNoAuth.body | ConvertTo-Json -Depth 10) } else { $null }
+        }
+    }
+}
+
+if (${doOrder} -and ${doGet} -and $oTargetId) {
+    Write-Section "[Order] Get Order by ID (authorized)"
+    $oGetById = Try-InvokeJsonGet -Uri "$ordersUrl/$oTargetId" -Headers $authHeaders
+    if ($oGetById.success -and $oGetById.status -eq 200 -and $oGetById.body.id -eq $oTargetId) {
+        Write-Host "Order fetched by ID: id=$oTargetId status=$($oGetById.body.status)" -ForegroundColor Green
+    } else {
+        Write-Host "Order get by ID failed ($($oGetById.status))" -ForegroundColor Red
+        $failures += @{
+            test = "Order Get by ID with token should be 200";
+            expected = "200";
+            actual = $oGetById.status;
+            details = ($oGetById.body | ConvertTo-Json -Depth 10)
+        }
+    }
+
+    Write-Section "[Order] Get Order by ID (without token should be 401/403)"
+    $oGetByIdNoAuth = Try-InvokeJsonGet -Uri "$ordersUrl/$oTargetId" -Headers @{}
+    if (-not $oGetByIdNoAuth.success -and ($oGetByIdNoAuth.status -eq 401 -or $oGetByIdNoAuth.status -eq 403)) {
+        Write-Host "Unauthorized order get by ID blocked ($($oGetByIdNoAuth.status))" -ForegroundColor Green
+    } else {
+        Write-Host "Unexpected unauth order get by ID result: success=$($oGetByIdNoAuth.success) status=$($oGetByIdNoAuth.status)" -ForegroundColor Yellow
+        $failures += @{
+            test = "Order Get by ID without token should be 401/403";
+            expected = "401/403";
+            actual = $oGetByIdNoAuth.status;
+            details = if ($oGetByIdNoAuth.body) { ($oGetByIdNoAuth.body | ConvertTo-Json -Depth 10) } else { $null }
+        }
+    }
+}
+
+if (${doOrder} -and ${doGet} -and $oOrderNumber) {
+    Write-Section "[Order] Get Order by Number (authorized)"
+    $oGetByNumber = Try-InvokeJsonGet -Uri "$ordersUrl/number/$oOrderNumber" -Headers $authHeaders
+    if ($oGetByNumber.success -and $oGetByNumber.status -eq 200 -and $oGetByNumber.body.orderNumber -eq $oOrderNumber) {
+        Write-Host "Order fetched by number: number=$oOrderNumber" -ForegroundColor Green
+    } else {
+        Write-Host "Order get by number failed ($($oGetByNumber.status))" -ForegroundColor Red
+        $failures += @{
+            test = "Order Get by Number with token should be 200";
+            expected = "200";
+            actual = $oGetByNumber.status;
+            details = ($oGetByNumber.body | ConvertTo-Json -Depth 10)
+        }
+    }
+
+    Write-Section "[Order] Get Order by Number (without token should be 401/403)"
+    $oGetByNumberNoAuth = Try-InvokeJsonGet -Uri "$ordersUrl/number/$oOrderNumber" -Headers @{}
+    if (-not $oGetByNumberNoAuth.success -and ($oGetByNumberNoAuth.status -eq 401 -or $oGetByNumberNoAuth.status -eq 403)) {
+        Write-Host "Unauthorized order get by number blocked ($($oGetByNumberNoAuth.status))" -ForegroundColor Green
+    } else {
+        Write-Host "Unexpected unauth order get by number result: success=$($oGetByNumberNoAuth.success) status=$($oGetByNumberNoAuth.status)" -ForegroundColor Yellow
+        $failures += @{
+            test = "Order Get by Number without token should be 401/403";
+            expected = "401/403";
+            actual = $oGetByNumberNoAuth.status;
+            details = if ($oGetByNumberNoAuth.body) { ($oGetByNumberNoAuth.body | ConvertTo-Json -Depth 10) } else { $null }
+        }
+    }
+}
+
+if (${doOrder} -and ${doGetAll}) {
+    Write-Section "[Order] Get My Orders (authorized)"
+    $oGetMyOrders = Try-InvokeJsonGet -Uri "$ordersUrl/my-orders" -Headers $authHeaders
+    if ($oGetMyOrders.success -and $oGetMyOrders.status -eq 200) {
+        $cnt = 0; try { $cnt = ($oGetMyOrders.body | Measure-Object).Count } catch {}
+        Write-Host "My orders fetched: $cnt" -ForegroundColor Green
+    } else {
+        Write-Host "Get my orders failed ($($oGetMyOrders.status))" -ForegroundColor Red
+        $failures += @{
+            test = "Order Get My Orders with token should be 200";
+            expected = "200";
+            actual = $oGetMyOrders.status;
+            details = ($oGetMyOrders.body | ConvertTo-Json -Depth 10)
+        }
+    }
+
+    Write-Section "[Order] Get My Orders (without token should be 401/403)"
+    $oGetMyOrdersNoAuth = Try-InvokeJsonGet -Uri "$ordersUrl/my-orders" -Headers @{}
+    if (-not $oGetMyOrdersNoAuth.success -and ($oGetMyOrdersNoAuth.status -eq 401 -or $oGetMyOrdersNoAuth.status -eq 403)) {
+        Write-Host "Unauthorized get my orders blocked ($($oGetMyOrdersNoAuth.status))" -ForegroundColor Green
+    } else {
+        Write-Host "Unexpected unauth get my orders result: success=$($oGetMyOrdersNoAuth.success) status=$($oGetMyOrdersNoAuth.status)" -ForegroundColor Yellow
+        $failures += @{
+            test = "Order Get My Orders without token should be 401/403";
+            expected = "401/403";
+            actual = $oGetMyOrdersNoAuth.status;
+            details = if ($oGetMyOrdersNoAuth.body) { ($oGetMyOrdersNoAuth.body | ConvertTo-Json -Depth 10) } else { $null }
+        }
+    }
+}
+
+if (${doOrder} -and ${doUpdate} -and $oTargetId) {
+    Write-Section "[Order] Update Order Status (authorized - Admin only)"
+    $oUpdateStatusPayload = @{ status = "CONFIRMED" }
+    $oUpdateStatus = Try-InvokeJsonPut -Uri "$ordersUrl/$oTargetId/status" -Headers $authHeaders -Body $oUpdateStatusPayload
+    if ($oUpdateStatus.success -and $oUpdateStatus.status -eq 200) {
+        Write-Host "Order status updated successfully: status=$($oUpdateStatus.body.status)" -ForegroundColor Green
+    } else {
+        Write-Host "Order status update failed ($($oUpdateStatus.status))" -ForegroundColor Red
+        $failures += @{
+            test = "Order Update Status with token should be 200";
+            expected = "200";
+            actual = $oUpdateStatus.status;
+            details = ($oUpdateStatus.body | ConvertTo-Json -Depth 10)
+        }
+    }
+
+    Write-Section "[Order] Update Order Status (without token should be 401/403)"
+    $oUpdateStatusNoAuth = Try-InvokeJsonPut -Uri "$ordersUrl/$oTargetId/status" -Headers @{} -Body $oUpdateStatusPayload
+    if (-not $oUpdateStatusNoAuth.success -and ($oUpdateStatusNoAuth.status -eq 401 -or $oUpdateStatusNoAuth.status -eq 403)) {
+        Write-Host "Unauthorized order status update blocked ($($oUpdateStatusNoAuth.status))" -ForegroundColor Green
+    } else {
+        Write-Host "Unexpected unauth order status update result: success=$($oUpdateStatusNoAuth.success) status=$($oUpdateStatusNoAuth.status)" -ForegroundColor Yellow
+        $failures += @{
+            test = "Order Update Status without token should be 401/403";
+            expected = "401/403";
+            actual = $oUpdateStatusNoAuth.status;
+            details = if ($oUpdateStatusNoAuth.body) { ($oUpdateStatusNoAuth.body | ConvertTo-Json -Depth 10) } else { $null }
+        }
+    }
+
+    Write-Section "[Order] Update Shipping Fee (authorized - Admin only)"
+    $oUpdateShippingFeePayload = @{ shippingFee = 50000 }
+    $oUpdateShippingFee = Try-InvokeJsonPut -Uri "$ordersUrl/$oTargetId/shipping-fee" -Headers $authHeaders -Body $oUpdateShippingFeePayload
+    if ($oUpdateShippingFee.success -and $oUpdateShippingFee.status -eq 200) {
+        Write-Host "Order shipping fee updated successfully: fee=$($oUpdateShippingFee.body.shippingFee)" -ForegroundColor Green
+    } else {
+        Write-Host "Order shipping fee update failed ($($oUpdateShippingFee.status))" -ForegroundColor Red
+        $failures += @{
+            test = "Order Update Shipping Fee with token should be 200";
+            expected = "200";
+            actual = $oUpdateShippingFee.status;
+            details = ($oUpdateShippingFee.body | ConvertTo-Json -Depth 10)
+        }
+    }
+
+    Write-Section "[Order] Update Tax Amount (authorized - Admin only)"
+    $oUpdateTaxPayload = @{ taxAmount = 10000 }
+    $oUpdateTax = Try-InvokeJsonPut -Uri "$ordersUrl/$oTargetId/tax" -Headers $authHeaders -Body $oUpdateTaxPayload
+    if ($oUpdateTax.success -and $oUpdateTax.status -eq 200) {
+        Write-Host "Order tax amount updated successfully: tax=$($oUpdateTax.body.taxAmount)" -ForegroundColor Green
+    } else {
+        Write-Host "Order tax amount update failed ($($oUpdateTax.status))" -ForegroundColor Red
+        $failures += @{
+            test = "Order Update Tax Amount with token should be 200";
+            expected = "200";
+            actual = $oUpdateTax.status;
+            details = ($oUpdateTax.body | ConvertTo-Json -Depth 10)
+        }
+    }
+
+    Write-Section "[Order] Update Discount Amount (authorized - Admin only)"
+    $oUpdateDiscountPayload = @{ discountAmount = 5000 }
+    $oUpdateDiscount = Try-InvokeJsonPut -Uri "$ordersUrl/$oTargetId/discount" -Headers $authHeaders -Body $oUpdateDiscountPayload
+    if ($oUpdateDiscount.success -and $oUpdateDiscount.status -eq 200) {
+        Write-Host "Order discount amount updated successfully: discount=$($oUpdateDiscount.body.discountAmount)" -ForegroundColor Green
+    } else {
+        Write-Host "Order discount amount update failed ($($oUpdateDiscount.status))" -ForegroundColor Red
+        $failures += @{
+            test = "Order Update Discount Amount with token should be 200";
+            expected = "200";
+            actual = $oUpdateDiscount.status;
+            details = ($oUpdateDiscount.body | ConvertTo-Json -Depth 10)
+        }
+    }
+
+    Write-Section "[Order] Update Order Notes (authorized)"
+    $oUpdateNotesPayload = @{ notes = "Test notes from script" }
+    $oUpdateNotes = Try-InvokeJsonPut -Uri "$ordersUrl/$oTargetId/notes" -Headers $authHeaders -Body $oUpdateNotesPayload
+    if ($oUpdateNotes.success -and $oUpdateNotes.status -eq 200) {
+        Write-Host "Order notes updated successfully: notes=$($oUpdateNotes.body.notes)" -ForegroundColor Green
+    } else {
+        Write-Host "Order notes update failed ($($oUpdateNotes.status))" -ForegroundColor Red
+        $failures += @{
+            test = "Order Update Notes with token should be 200";
+            expected = "200";
+            actual = $oUpdateNotes.status;
+            details = ($oUpdateNotes.body | ConvertTo-Json -Depth 10)
+        }
+    }
+
+    Write-Section "[Order] Update Order Notes (without token should be 401/403)"
+    $oUpdateNotesNoAuth = Try-InvokeJsonPut -Uri "$ordersUrl/$oTargetId/notes" -Headers @{} -Body $oUpdateNotesPayload
+    if (-not $oUpdateNotesNoAuth.success -and ($oUpdateNotesNoAuth.status -eq 401 -or $oUpdateNotesNoAuth.status -eq 403)) {
+        Write-Host "Unauthorized order notes update blocked ($($oUpdateNotesNoAuth.status))" -ForegroundColor Green
+    } else {
+        Write-Host "Unexpected unauth order notes update result: success=$($oUpdateNotesNoAuth.success) status=$($oUpdateNotesNoAuth.status)" -ForegroundColor Yellow
+        $failures += @{
+            test = "Order Update Notes without token should be 401/403";
+            expected = "401/403";
+            actual = $oUpdateNotesNoAuth.status;
+            details = if ($oUpdateNotesNoAuth.body) { ($oUpdateNotesNoAuth.body | ConvertTo-Json -Depth 10) } else { $null }
+        }
+    }
+}
+
+if (${doOrder} -and ${doGetAll}) {
+    Write-Section "[Order] Get Orders with Product Changes (authorized - Admin only)"
+    $oGetWithChanges = Try-InvokeJsonGet -Uri "$ordersUrl/with-product-changes" -Headers $authHeaders
+    if ($oGetWithChanges.success -and $oGetWithChanges.status -eq 200) {
+        $cnt = 0; try { $cnt = ($oGetWithChanges.body | Measure-Object).Count } catch {}
+        Write-Host "Orders with product changes: $cnt" -ForegroundColor Green
+    } else {
+        Write-Host "Get orders with product changes failed ($($oGetWithChanges.status))" -ForegroundColor Red
+        $failures += @{
+            test = "Order Get with Product Changes with token should be 200";
+            expected = "200";
+            actual = $oGetWithChanges.status;
+            details = ($oGetWithChanges.body | ConvertTo-Json -Depth 10)
+        }
+    }
+
+    Write-Section "[Order] Get Orders Needing Attention (authorized - Admin only)"
+    $oGetNeedingAttention = Try-InvokeJsonGet -Uri "$ordersUrl/needing-attention" -Headers $authHeaders
+    if ($oGetNeedingAttention.success -and $oGetNeedingAttention.status -eq 200) {
+        $cnt = 0; try { $cnt = ($oGetNeedingAttention.body | Measure-Object).Count } catch {}
+        Write-Host "Orders needing attention: $cnt" -ForegroundColor Green
+    } else {
+        Write-Host "Get orders needing attention failed ($($oGetNeedingAttention.status))" -ForegroundColor Red
+        $failures += @{
+            test = "Order Get Needing Attention with token should be 200";
+            expected = "200";
+            actual = $oGetNeedingAttention.status;
+            details = ($oGetNeedingAttention.body | ConvertTo-Json -Depth 10)
+        }
+    }
+
+    Write-Section "[Order] Get Recent Orders (authorized - Admin only)"
+    $oGetRecent = Try-InvokeJsonGet -Uri "$ordersUrl/recent" -Headers $authHeaders
+    if ($oGetRecent.success -and $oGetRecent.status -eq 200) {
+        $cnt = 0; try { $cnt = ($oGetRecent.body | Measure-Object).Count } catch {}
+        Write-Host "Recent orders: $cnt" -ForegroundColor Green
+    } else {
+        Write-Host "Get recent orders failed ($($oGetRecent.status))" -ForegroundColor Red
+        $failures += @{
+            test = "Order Get Recent with token should be 200";
+            expected = "200";
+            actual = $oGetRecent.status;
+            details = ($oGetRecent.body | ConvertTo-Json -Depth 10)
+        }
+    }
+
+    Write-Section "[Order] Get Order Statistics (authorized - Admin only)"
+    $oGetStatistics = Try-InvokeJsonGet -Uri "$ordersUrl/statistics" -Headers $authHeaders
+    if ($oGetStatistics.success -and $oGetStatistics.status -eq 200) {
+        Write-Host "Order statistics fetched: total=$($oGetStatistics.body.totalOrders) pending=$($oGetStatistics.body.pendingOrders)" -ForegroundColor Green
+    } else {
+        Write-Host "Get order statistics failed ($($oGetStatistics.status))" -ForegroundColor Red
+        $failures += @{
+            test = "Order Get Statistics with token should be 200";
+            expected = "200";
+            actual = $oGetStatistics.status;
+            details = ($oGetStatistics.body | ConvertTo-Json -Depth 10)
+        }
+    }
+}
+
 Write-Section "Summary"
 @{
     baseUrl = $BaseUrl
@@ -1128,6 +1568,29 @@ Write-Section "Summary"
         clearStatus = if ($cartClear) { $cartClear.status } else { $null }
         clearNoAuthStatus = if ($cartClearNoAuth) { $cartClearNoAuth.status } else { $null }
     }
+    order = @{
+        createFromCartStatus = if ($oCreateFromCart) { $oCreateFromCart.status } else { $null }
+        createFromCartNoAuthStatus = if ($oCreateFromCartNoAuth) { $oCreateFromCartNoAuth.status } else { $null }
+        getByIdStatus = if ($oGetById) { $oGetById.status } else { $null }
+        getByIdNoAuthStatus = if ($oGetByIdNoAuth) { $oGetByIdNoAuth.status } else { $null }
+        getByNumberStatus = if ($oGetByNumber) { $oGetByNumber.status } else { $null }
+        getByNumberNoAuthStatus = if ($oGetByNumberNoAuth) { $oGetByNumberNoAuth.status } else { $null }
+        getMyOrdersStatus = if ($oGetMyOrders) { $oGetMyOrders.status } else { $null }
+        getMyOrdersNoAuthStatus = if ($oGetMyOrdersNoAuth) { $oGetMyOrdersNoAuth.status } else { $null }
+        updateStatusStatus = if ($oUpdateStatus) { $oUpdateStatus.status } else { $null }
+        updateStatusNoAuthStatus = if ($oUpdateStatusNoAuth) { $oUpdateStatusNoAuth.status } else { $null }
+        updateShippingFeeStatus = if ($oUpdateShippingFee) { $oUpdateShippingFee.status } else { $null }
+        updateTaxStatus = if ($oUpdateTax) { $oUpdateTax.status } else { $null }
+        updateDiscountStatus = if ($oUpdateDiscount) { $oUpdateDiscount.status } else { $null }
+        updateNotesStatus = if ($oUpdateNotes) { $oUpdateNotes.status } else { $null }
+        updateNotesNoAuthStatus = if ($oUpdateNotesNoAuth) { $oUpdateNotesNoAuth.status } else { $null }
+        getWithChangesStatus = if ($oGetWithChanges) { $oGetWithChanges.status } else { $null }
+        getNeedingAttentionStatus = if ($oGetNeedingAttention) { $oGetNeedingAttention.status } else { $null }
+        getRecentStatus = if ($oGetRecent) { $oGetRecent.status } else { $null }
+        getStatisticsStatus = if ($oGetStatistics) { $oGetStatistics.status } else { $null }
+        targetId = $oTargetId
+        orderNumber = $oOrderNumber
+    }
 } | ConvertTo-Json -Depth 10 | Write-Host
 
 # Write BugList if any failures
@@ -1141,7 +1604,7 @@ if ($failures.Count -gt 0) {
     $lines += "# User API BugList"
     $lines += ""
     $lines += "Date: $ts"
-    $lines += "Scope: scripts/test-user-create.ps1 ($Mode)"
+    $lines += "Scope: scripts/test-all-apis.ps1 ($Mode)"
     $lines += ""
     $i = 1
     foreach ($f in $failures) {
@@ -1175,7 +1638,10 @@ $executed = @()
 foreach ($v in @($create1,$create2,$create3,$getAllAuth,$getAllNoAuth,$getOneAuth,$getOneNoAuth,$updateAuth,$updateNoAuth,$deleteAuth,$deleteNoAuth,$afterDel,
                   $pCreate,$pCreateDup,$pCreateNoAuth,$pGetAllAuth,$pGetAllNoAuth,$pGetOneAuth,$pGetOneNoAuth,$pUpdateAuth,$pUpdateNoAuth,$pDeleteAuth,$pDeleteNoAuth,$pAfterDel,
                   $cCreate,$cCreateDup,$cCreateNoAuth,$cGetAllAuth,$cGetAllNoAuth,$cGetOneAuth,$cGetOneNoAuth,$cUpdateAuth,$cUpdateNoAuth,$cDeleteAuth,$cDeleteNoAuth,$cAfterDel,
-                  $cartGet,$cartGetNoAuth,$cartAddItem,$cartAddItemNoAuth,$cartUpdateQty,$cartUpdateQtyNoAuth,$cartRemoveItem,$cartRemoveItemNoAuth,$cartClear,$cartClearNoAuth)) {
+                  $cartGet,$cartGetNoAuth,$cartAddItem,$cartAddItemNoAuth,$cartUpdateQty,$cartUpdateQtyNoAuth,$cartRemoveItem,$cartRemoveItemNoAuth,$cartClear,$cartClearNoAuth,
+                  $oCreateFromCart,$oCreateFromCartNoAuth,$oGetById,$oGetByIdNoAuth,$oGetByNumber,$oGetByNumberNoAuth,$oGetMyOrders,$oGetMyOrdersNoAuth,
+                  $oUpdateStatus,$oUpdateStatusNoAuth,$oUpdateShippingFee,$oUpdateTax,$oUpdateDiscount,$oUpdateNotes,$oUpdateNotesNoAuth,
+                  $oGetWithChanges,$oGetNeedingAttention,$oGetRecent,$oGetStatistics)) {
     if ($null -ne $v) { $executed += 1 }
 }
 $total = $executed.Count
@@ -1255,6 +1721,31 @@ $summary += (ConvertTo-Json @{
     clear = if ($cartClear) { $cartClear.status } else { $null }
     clearNoAuth = if ($cartClearNoAuth) { $cartClearNoAuth.status } else { $null }
 } -Depth 4)
+$summary += ""
+$summary += "## Order"
+$summary += (ConvertTo-Json @{
+    createFromCart = if ($oCreateFromCart) { $oCreateFromCart.status } else { $null }
+    createFromCartNoAuth = if ($oCreateFromCartNoAuth) { $oCreateFromCartNoAuth.status } else { $null }
+    getById = if ($oGetById) { $oGetById.status } else { $null }
+    getByIdNoAuth = if ($oGetByIdNoAuth) { $oGetByIdNoAuth.status } else { $null }
+    getByNumber = if ($oGetByNumber) { $oGetByNumber.status } else { $null }
+    getByNumberNoAuth = if ($oGetByNumberNoAuth) { $oGetByNumberNoAuth.status } else { $null }
+    getMyOrders = if ($oGetMyOrders) { $oGetMyOrders.status } else { $null }
+    getMyOrdersNoAuth = if ($oGetMyOrdersNoAuth) { $oGetMyOrdersNoAuth.status } else { $null }
+    updateStatus = if ($oUpdateStatus) { $oUpdateStatus.status } else { $null }
+    updateStatusNoAuth = if ($oUpdateStatusNoAuth) { $oUpdateStatusNoAuth.status } else { $null }
+    updateShippingFee = if ($oUpdateShippingFee) { $oUpdateShippingFee.status } else { $null }
+    updateTax = if ($oUpdateTax) { $oUpdateTax.status } else { $null }
+    updateDiscount = if ($oUpdateDiscount) { $oUpdateDiscount.status } else { $null }
+    updateNotes = if ($oUpdateNotes) { $oUpdateNotes.status } else { $null }
+    updateNotesNoAuth = if ($oUpdateNotesNoAuth) { $oUpdateNotesNoAuth.status } else { $null }
+    getWithChanges = if ($oGetWithChanges) { $oGetWithChanges.status } else { $null }
+    getNeedingAttention = if ($oGetNeedingAttention) { $oGetNeedingAttention.status } else { $null }
+    getRecent = if ($oGetRecent) { $oGetRecent.status } else { $null }
+    getStatistics = if ($oGetStatistics) { $oGetStatistics.status } else { $null }
+    targetId = $oTargetId
+    orderNumber = $oOrderNumber
+} -Depth 4)
 
 # Expected vs Actual section
 $summary += ""
@@ -1310,8 +1801,129 @@ $summary += "- Remove Item: expected 200/204, actual: " + $(if ($cartRemoveItem)
 $summary += "- Remove Item (no token): expected 401/403, actual: " + $(if ($cartRemoveItemNoAuth) { $cartRemoveItemNoAuth.status } else { $null })
 $summary += "- Clear: expected 200/204, actual: " + $(if ($cartClear) { $cartClear.status } else { $null })
 $summary += "- Clear (no token): expected 401/403, actual: " + $(if ($cartClearNoAuth) { $cartClearNoAuth.status } else { $null })
+$summary += ""
+$summary += "### Order"
+$summary += "- Create from Cart: expected 200/201, actual: " + $(if ($oCreateFromCart) { $oCreateFromCart.status } else { $null })
+$summary += "- Create from Cart (no token): expected 401/403, actual: " + $(if ($oCreateFromCartNoAuth) { $oCreateFromCartNoAuth.status } else { $null })
+$summary += "- Get by ID: expected 200, actual: " + $(if ($oGetById) { $oGetById.status } else { $null })
+$summary += "- Get by ID (no token): expected 401/403, actual: " + $(if ($oGetByIdNoAuth) { $oGetByIdNoAuth.status } else { $null })
+$summary += "- Get by Number: expected 200, actual: " + $(if ($oGetByNumber) { $oGetByNumber.status } else { $null })
+$summary += "- Get by Number (no token): expected 401/403, actual: " + $(if ($oGetByNumberNoAuth) { $oGetByNumberNoAuth.status } else { $null })
+$summary += "- Get My Orders: expected 200, actual: " + $(if ($oGetMyOrders) { $oGetMyOrders.status } else { $null })
+$summary += "- Get My Orders (no token): expected 401/403, actual: " + $(if ($oGetMyOrdersNoAuth) { $oGetMyOrdersNoAuth.status } else { $null })
+$summary += "- Update Status: expected 200, actual: " + $(if ($oUpdateStatus) { $oUpdateStatus.status } else { $null })
+$summary += "- Update Status (no token): expected 401/403, actual: " + $(if ($oUpdateStatusNoAuth) { $oUpdateStatusNoAuth.status } else { $null })
+$summary += "- Update Shipping Fee: expected 200, actual: " + $(if ($oUpdateShippingFee) { $oUpdateShippingFee.status } else { $null })
+$summary += "- Update Tax: expected 200, actual: " + $(if ($oUpdateTax) { $oUpdateTax.status } else { $null })
+$summary += "- Update Discount: expected 200, actual: " + $(if ($oUpdateDiscount) { $oUpdateDiscount.status } else { $null })
+$summary += "- Update Notes: expected 200, actual: " + $(if ($oUpdateNotes) { $oUpdateNotes.status } else { $null })
+$summary += "- Update Notes (no token): expected 401/403, actual: " + $(if ($oUpdateNotesNoAuth) { $oUpdateNotesNoAuth.status } else { $null })
+$summary += "- Get with Changes: expected 200, actual: " + $(if ($oGetWithChanges) { $oGetWithChanges.status } else { $null })
+$summary += "- Get Needing Attention: expected 200, actual: " + $(if ($oGetNeedingAttention) { $oGetNeedingAttention.status } else { $null })
+$summary += "- Get Recent: expected 200, actual: " + $(if ($oGetRecent) { $oGetRecent.status } else { $null })
+$summary += "- Get Statistics: expected 200, actual: " + $(if ($oGetStatistics) { $oGetStatistics.status } else { $null })
 
 Set-Content -Path $summaryPath -Value $summary -Encoding UTF8
 Write-Host "Summary written to $summaryPath" -ForegroundColor Cyan
+
+# Create individual entity reports
+Write-Section "Creating Entity Reports"
+
+# User Entity Report
+$userTests = @($create1,$create2,$create3,$getAllAuth,$getAllNoAuth,$getOneAuth,$getOneNoAuth,$updateAuth,$updateNoAuth,$deleteAuth,$deleteNoAuth,$afterDel)
+$userFailures = $failures | Where-Object { $_.test -like "*User*" -or $_.test -like "*Create*" -or $_.test -like "*GetAll*" -or $_.test -like "*Get by*" -or $_.test -like "*Update*" -or $_.test -like "*Delete*" }
+$userTestResults = @{
+    "Create User" = @{ Expected = "200"; Actual = if ($create1) { $create1.status } else { "Not executed" } }
+    "Create Duplicate" = @{ Expected = "400"; Actual = if ($create2) { $create2.status } else { "Not executed" } }
+    "Create (no token)" = @{ Expected = "401/403"; Actual = if ($create3) { $create3.status } else { "Not executed" } }
+    "Get All" = @{ Expected = "200"; Actual = if ($getAllAuth) { $getAllAuth.status } else { "Not executed" } }
+    "Get All (no token)" = @{ Expected = "401/403"; Actual = if ($getAllNoAuth) { $getAllNoAuth.status } else { "Not executed" } }
+    "Get by ID" = @{ Expected = "200"; Actual = if ($getOneAuth) { $getOneAuth.status } else { "Not executed" } }
+    "Get by ID (no token)" = @{ Expected = "401/403"; Actual = if ($getOneNoAuth) { $getOneNoAuth.status } else { "Not executed" } }
+    "Update" = @{ Expected = "200"; Actual = if ($updateAuth) { $updateAuth.status } else { "Not executed" } }
+    "Update (no token)" = @{ Expected = "401/403"; Actual = if ($updateNoAuth) { $updateNoAuth.status } else { "Not executed" } }
+    "Delete" = @{ Expected = "204"; Actual = if ($deleteAuth) { $deleteAuth.status } else { "Not executed" } }
+    "Delete (no token)" = @{ Expected = "401/403"; Actual = if ($deleteNoAuth) { $deleteNoAuth.status } else { "Not executed" } }
+}
+Write-EntityReport -Entity "User" -BaseUrl $BaseUrl -Mode $Mode -Timestamp $ts2 -EntityTests $userTests -EntityFailures $userFailures -TestResults $userTestResults
+
+# Product Entity Report
+$productTests = @($pCreate,$pCreateDup,$pCreateNoAuth,$pGetAllAuth,$pGetAllNoAuth,$pGetOneAuth,$pGetOneNoAuth,$pUpdateAuth,$pUpdateNoAuth,$pDeleteAuth,$pDeleteNoAuth,$pAfterDel)
+$productFailures = $failures | Where-Object { $_.test -like "*Product*" }
+$productTestResults = @{
+    "Create Product" = @{ Expected = "200/201"; Actual = if ($pCreate) { $pCreate.status } else { "Not executed" } }
+    "Create Duplicate SKU" = @{ Expected = "400"; Actual = if ($pCreateDup) { $pCreateDup.status } else { "Not executed" } }
+    "Create (no token)" = @{ Expected = "401/403"; Actual = if ($pCreateNoAuth) { $pCreateNoAuth.status } else { "Not executed" } }
+    "Get All" = @{ Expected = "200"; Actual = if ($pGetAllAuth) { $pGetAllAuth.status } else { "Not executed" } }
+    "Get All (no token)" = @{ Expected = "401/403"; Actual = if ($pGetAllNoAuth) { $pGetAllNoAuth.status } else { "Not executed" } }
+    "Get by ID" = @{ Expected = "200"; Actual = if ($pGetOneAuth) { $pGetOneAuth.status } else { "Not executed" } }
+    "Get by ID (no token)" = @{ Expected = "401/403"; Actual = if ($pGetOneNoAuth) { $pGetOneNoAuth.status } else { "Not executed" } }
+    "Update" = @{ Expected = "200"; Actual = if ($pUpdateAuth) { $pUpdateAuth.status } else { "Not executed" } }
+    "Update (no token)" = @{ Expected = "401/403"; Actual = if ($pUpdateNoAuth) { $pUpdateNoAuth.status } else { "Not executed" } }
+    "Delete" = @{ Expected = "200/204"; Actual = if ($pDeleteAuth) { $pDeleteAuth.status } else { "Not executed" } }
+    "Delete (no token)" = @{ Expected = "401/403"; Actual = if ($pDeleteNoAuth) { $pDeleteNoAuth.status } else { "Not executed" } }
+}
+Write-EntityReport -Entity "Product" -BaseUrl $BaseUrl -Mode $Mode -Timestamp $ts2 -EntityTests $productTests -EntityFailures $productFailures -TestResults $productTestResults
+
+# Category Entity Report
+$categoryTests = @($cCreate,$cCreateDup,$cCreateNoAuth,$cGetAllAuth,$cGetAllNoAuth,$cGetOneAuth,$cGetOneNoAuth,$cUpdateAuth,$cUpdateNoAuth,$cDeleteAuth,$cDeleteNoAuth,$cAfterDel)
+$categoryFailures = $failures | Where-Object { $_.test -like "*Category*" }
+$categoryTestResults = @{
+    "Create Category" = @{ Expected = "200/201"; Actual = if ($cCreate) { $cCreate.status } else { "Not executed" } }
+    "Create Duplicate Slug" = @{ Expected = "400"; Actual = if ($cCreateDup) { $cCreateDup.status } else { "Not executed" } }
+    "Create (no token)" = @{ Expected = "401/403"; Actual = if ($cCreateNoAuth) { $cCreateNoAuth.status } else { "Not executed" } }
+    "Get All Active" = @{ Expected = "200"; Actual = if ($cGetAllAuth) { $cGetAllAuth.status } else { "Not executed" } }
+    "Get All Active (no token)" = @{ Expected = "401/403"; Actual = if ($cGetAllNoAuth) { $cGetAllNoAuth.status } else { "Not executed" } }
+    "Get by ID" = @{ Expected = "200"; Actual = if ($cGetOneAuth) { $cGetOneAuth.status } else { "Not executed" } }
+    "Get by ID (no token)" = @{ Expected = "401/403"; Actual = if ($cGetOneNoAuth) { $cGetOneNoAuth.status } else { "Not executed" } }
+    "Update" = @{ Expected = "200"; Actual = if ($cUpdateAuth) { $cUpdateAuth.status } else { "Not executed" } }
+    "Update (no token)" = @{ Expected = "401/403"; Actual = if ($cUpdateNoAuth) { $cUpdateNoAuth.status } else { "Not executed" } }
+    "Delete" = @{ Expected = "200/204"; Actual = if ($cDeleteAuth) { $cDeleteAuth.status } else { "Not executed" } }
+    "Delete (no token)" = @{ Expected = "401/403"; Actual = if ($cDeleteNoAuth) { $cDeleteNoAuth.status } else { "Not executed" } }
+}
+Write-EntityReport -Entity "Category" -BaseUrl $BaseUrl -Mode $Mode -Timestamp $ts2 -EntityTests $categoryTests -EntityFailures $categoryFailures -TestResults $categoryTestResults
+
+# Cart Entity Report
+$cartTests = @($cartGet,$cartGetNoAuth,$cartAddItem,$cartAddItemNoAuth,$cartUpdateQty,$cartUpdateQtyNoAuth,$cartRemoveItem,$cartRemoveItemNoAuth,$cartClear,$cartClearNoAuth)
+$cartFailures = $failures | Where-Object { $_.test -like "*Cart*" }
+$cartTestResults = @{
+    "Get Cart" = @{ Expected = "200/404"; Actual = if ($cartGet) { $cartGet.status } else { "Not executed" } }
+    "Get Cart (no token)" = @{ Expected = "401/403"; Actual = if ($cartGetNoAuth) { $cartGetNoAuth.status } else { "Not executed" } }
+    "Add Item" = @{ Expected = "200"; Actual = if ($cartAddItem) { $cartAddItem.status } else { "Not executed" } }
+    "Add Item (no token)" = @{ Expected = "401/403"; Actual = if ($cartAddItemNoAuth) { $cartAddItemNoAuth.status } else { "Not executed" } }
+    "Update Quantity" = @{ Expected = "200"; Actual = if ($cartUpdateQty) { $cartUpdateQty.status } else { "Not executed" } }
+    "Update Quantity (no token)" = @{ Expected = "401/403"; Actual = if ($cartUpdateQtyNoAuth) { $cartUpdateQtyNoAuth.status } else { "Not executed" } }
+    "Remove Item" = @{ Expected = "200/204"; Actual = if ($cartRemoveItem) { $cartRemoveItem.status } else { "Not executed" } }
+    "Remove Item (no token)" = @{ Expected = "401/403"; Actual = if ($cartRemoveItemNoAuth) { $cartRemoveItemNoAuth.status } else { "Not executed" } }
+    "Clear Cart" = @{ Expected = "200/204"; Actual = if ($cartClear) { $cartClear.status } else { "Not executed" } }
+    "Clear Cart (no token)" = @{ Expected = "401/403"; Actual = if ($cartClearNoAuth) { $cartClearNoAuth.status } else { "Not executed" } }
+}
+Write-EntityReport -Entity "Cart" -BaseUrl $BaseUrl -Mode $Mode -Timestamp $ts2 -EntityTests $cartTests -EntityFailures $cartFailures -TestResults $cartTestResults
+
+# Order Entity Report
+$orderTests = @($oCreateFromCart,$oCreateFromCartNoAuth,$oGetById,$oGetByIdNoAuth,$oGetByNumber,$oGetByNumberNoAuth,$oGetMyOrders,$oGetMyOrdersNoAuth,$oUpdateStatus,$oUpdateStatusNoAuth,$oUpdateShippingFee,$oUpdateTax,$oUpdateDiscount,$oUpdateNotes,$oUpdateNotesNoAuth,$oGetWithChanges,$oGetNeedingAttention,$oGetRecent,$oGetStatistics)
+$orderFailures = $failures | Where-Object { $_.test -like "*Order*" }
+$orderTestResults = @{
+    "Create from Cart" = @{ Expected = "200/201"; Actual = if ($oCreateFromCart) { $oCreateFromCart.status } else { "Not executed" } }
+    "Create from Cart (no token)" = @{ Expected = "401/403"; Actual = if ($oCreateFromCartNoAuth) { $oCreateFromCartNoAuth.status } else { "Not executed" } }
+    "Get by ID" = @{ Expected = "200"; Actual = if ($oGetById) { $oGetById.status } else { "Not executed" } }
+    "Get by ID (no token)" = @{ Expected = "401/403"; Actual = if ($oGetByIdNoAuth) { $oGetByIdNoAuth.status } else { "Not executed" } }
+    "Get by Number" = @{ Expected = "200"; Actual = if ($oGetByNumber) { $oGetByNumber.status } else { "Not executed" } }
+    "Get by Number (no token)" = @{ Expected = "401/403"; Actual = if ($oGetByNumberNoAuth) { $oGetByNumberNoAuth.status } else { "Not executed" } }
+    "Get My Orders" = @{ Expected = "200"; Actual = if ($oGetMyOrders) { $oGetMyOrders.status } else { "Not executed" } }
+    "Get My Orders (no token)" = @{ Expected = "401/403"; Actual = if ($oGetMyOrdersNoAuth) { $oGetMyOrdersNoAuth.status } else { "Not executed" } }
+    "Update Status" = @{ Expected = "200"; Actual = if ($oUpdateStatus) { $oUpdateStatus.status } else { "Not executed" } }
+    "Update Status (no token)" = @{ Expected = "401/403"; Actual = if ($oUpdateStatusNoAuth) { $oUpdateStatusNoAuth.status } else { "Not executed" } }
+    "Update Shipping Fee" = @{ Expected = "200"; Actual = if ($oUpdateShippingFee) { $oUpdateShippingFee.status } else { "Not executed" } }
+    "Update Tax" = @{ Expected = "200"; Actual = if ($oUpdateTax) { $oUpdateTax.status } else { "Not executed" } }
+    "Update Discount" = @{ Expected = "200"; Actual = if ($oUpdateDiscount) { $oUpdateDiscount.status } else { "Not executed" } }
+    "Update Notes" = @{ Expected = "200"; Actual = if ($oUpdateNotes) { $oUpdateNotes.status } else { "Not executed" } }
+    "Update Notes (no token)" = @{ Expected = "401/403"; Actual = if ($oUpdateNotesNoAuth) { $oUpdateNotesNoAuth.status } else { "Not executed" } }
+    "Get with Changes" = @{ Expected = "200"; Actual = if ($oGetWithChanges) { $oGetWithChanges.status } else { "Not executed" } }
+    "Get Needing Attention" = @{ Expected = "200"; Actual = if ($oGetNeedingAttention) { $oGetNeedingAttention.status } else { "Not executed" } }
+    "Get Recent" = @{ Expected = "200"; Actual = if ($oGetRecent) { $oGetRecent.status } else { "Not executed" } }
+    "Get Statistics" = @{ Expected = "200"; Actual = if ($oGetStatistics) { $oGetStatistics.status } else { "Not executed" } }
+}
+Write-EntityReport -Entity "Order" -BaseUrl $BaseUrl -Mode $Mode -Timestamp $ts2 -EntityTests $orderTests -EntityFailures $orderFailures -TestResults $orderTestResults
 
 

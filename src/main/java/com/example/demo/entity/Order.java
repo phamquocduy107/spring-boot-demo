@@ -108,7 +108,7 @@ public class Order {
         this.orderNumber = "ORD-" + dateStr + "-" + randomStr;
     }
 
-    private void calculateTotals() {
+    public void calculateTotals() {
         subtotal = items.stream()
             .map(OrderItem::getTotalPrice)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
