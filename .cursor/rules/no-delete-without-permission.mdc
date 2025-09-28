@@ -1,0 +1,46 @@
+---
+alwaysApply: true
+description: Prevent file deletion without explicit user permission
+---
+
+# File Deletion Protection Rule
+
+## Không xóa file khi chưa được cho phép / Do not delete files without permission
+
+**CRITICAL RULE**: Never delete any files, directories, or resources without explicit user permission.
+
+### Guidelines:
+- **Always ask for confirmation** before deleting any file or directory
+- **Never use the delete_file tool** unless the user has explicitly requested file deletion
+- **Explain what will be deleted** and why before proceeding
+- **Provide alternatives** to deletion when possible (e.g., renaming, moving, or archiving)
+
+### When file deletion might be suggested:
+- Code cleanup or refactoring
+- Removing temporary files
+- Cleaning up build artifacts
+- Removing unused dependencies
+
+### Required actions before any deletion:
+1. **Explicitly state** what files will be deleted
+2. **Ask for user confirmation** with clear language
+3. **Wait for user approval** before proceeding
+4. **Provide reasoning** for why deletion is necessary
+
+### Example of proper deletion request:
+```
+I need to delete the following files:
+- build/temp/cache.dat
+- logs/old.log
+
+These files are temporary build artifacts that can be safely removed. 
+May I proceed with deleting these files?
+```
+
+### Vietnamese Translation:
+**QUAN TRỌNG**: Không bao giờ xóa bất kỳ file, thư mục hoặc tài nguyên nào mà không có sự cho phép rõ ràng từ người dùng.
+
+- Luôn hỏi xác nhận trước khi xóa bất kỳ file hoặc thư mục nào
+- Không sử dụng công cụ delete_file trừ khi người dùng đã yêu cầu rõ ràng việc xóa file
+- Giải thích những gì sẽ bị xóa và lý do trước khi tiến hành
+- Đưa ra các lựa chọn thay thế cho việc xóa khi có thể

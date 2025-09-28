@@ -50,39 +50,65 @@ public class ProductService {
         return productRepository.findBySku(sku);
     }
     
-    // Update product
+    // Update product (partial update: only apply non-null fields)
     public Product updateProduct(Long id, Product productDetails) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Product not found with id: " + id));
-        
-        // Check SKU uniqueness if SKU is being changed
-        if (!product.getSku().equals(productDetails.getSku()) && 
-            productRepository.existsBySku(productDetails.getSku())) {
-            throw new IllegalArgumentException("Product with SKU '" + productDetails.getSku() + "' already exists");
+
+        // SKU
+        if (productDetails.getSku() != null && !product.getSku().equals(productDetails.getSku())) {
+            Optional<Product> otherBySku = productRepository.findBySku(productDetails.getSku());
+            if (otherBySku.isPresent() && !otherBySku.get().getId().equals(id)) {
+                throw new IllegalArgumentException("Product with SKU '" + productDetails.getSku() + "' already exists");
+            }
+            product.setSku(productDetails.getSku());
         }
-        
-        // Check name uniqueness if name is being changed
-        if (!product.getName().equals(productDetails.getName()) && 
-            productRepository.existsByName(productDetails.getName())) {
-            throw new IllegalArgumentException("Product with name '" + productDetails.getName() + "' already exists");
+
+        // Name
+        if (productDetails.getName() != null && !product.getName().equals(productDetails.getName())) {
+            if (productRepository.existsByName(productDetails.getName())) {
+                throw new IllegalArgumentException("Product with name '" + productDetails.getName() + "' already exists");
+            }
+            product.setName(productDetails.getName());
         }
-        
-        // Update fields
-        product.setName(productDetails.getName());
-        product.setDescription(productDetails.getDescription());
-        product.setSku(productDetails.getSku());
-        product.setPrice(productDetails.getPrice());
-        product.setStockQuantity(productDetails.getStockQuantity());
-        product.setCategory(productDetails.getCategory());
-        product.setBrand(productDetails.getBrand());
-        product.setWeight(productDetails.getWeight());
-        product.setDimensions(productDetails.getDimensions());
-        product.setColor(productDetails.getColor());
-        product.setSize(productDetails.getSize());
-        product.setIsActive(productDetails.getIsActive());
-        product.setIsFeatured(productDetails.getIsFeatured());
-        product.setStatus(productDetails.getStatus());
-        
+
+        if (productDetails.getDescription() != null) {
+            product.setDescription(productDetails.getDescription());
+        }
+        if (productDetails.getPrice() != null) {
+            product.setPrice(productDetails.getPrice());
+        }
+        if (productDetails.getStockQuantity() != null) {
+            product.setStockQuantity(productDetails.getStockQuantity());
+        }
+        if (productDetails.getCategory() != null) {
+            product.setCategory(productDetails.getCategory());
+        }
+        if (productDetails.getBrand() != null) {
+            product.setBrand(productDetails.getBrand());
+        }
+        if (productDetails.getWeight() != null) {
+            product.setWeight(productDetails.getWeight());
+        }
+        if (productDetails.getDimensions() != null) {
+            product.setDimensions(productDetails.getDimensions());
+        }
+        if (productDetails.getColor() != null) {
+            product.setColor(productDetails.getColor());
+        }
+        if (productDetails.getSize() != null) {
+            product.setSize(productDetails.getSize());
+        }
+        if (productDetails.getIsActive() != null) {
+            product.setIsActive(productDetails.getIsActive());
+        }
+        if (productDetails.getIsFeatured() != null) {
+            product.setIsFeatured(productDetails.getIsFeatured());
+        }
+        if (productDetails.getStatus() != null) {
+            product.setStatus(productDetails.getStatus());
+        }
+
         return productRepository.save(product);
     }
     

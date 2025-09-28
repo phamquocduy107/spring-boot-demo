@@ -2,6 +2,9 @@ package com.example.demo.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.TransactionSystemException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -34,6 +37,40 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleRuntimeException(RuntimeException ex) {
         Map<String, String> error = new HashMap<>();
         error.put("error", ex.getMessage());
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(TransactionSystemException.class)
+    public ResponseEntity<Map<String, Object>> handleTransactionSystemException(TransactionSystemException ex) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("error", "Transaction failed");
+        Throwable root = ex.getRootCause();
+        if (root != null) {
+            error.put("rootCause", root.getClass().getSimpleName());
+            error.put("message", root.getMessage());
+        }
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("error", "Data integrity violation");
+        Throwable root = ex.getRootCause();
+        if (root != null) {
+            error.put("rootCause", root.getClass().getSimpleName());
+            error.put("message", root.getMessage());
+        }
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleHibernateConstraintViolation(ConstraintViolationException ex) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("error", "Constraint violation");
+        error.put("constraint", ex.getConstraintName());
+        error.put("sqlState", ex.getSQLState());
+        error.put("message", ex.getMessage());
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 }

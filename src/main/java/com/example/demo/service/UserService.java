@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -55,15 +56,31 @@ public class UserService {
         return userRepository.findById(id);
     }
 
+    @Transactional
     public User updateUser(Long id, User userDetails) {
-        Optional<User> userOptional = userRepository.findById(id);
-        if (userOptional.isPresent()) {
-            User user = userOptional.get();
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
+
+        if (userDetails.getName() != null) {
             user.setName(userDetails.getName());
-            user.setEmail(userDetails.getEmail());
-            return userRepository.save(user);
         }
-        return null;
+
+        if (userDetails.getEmail() != null) {
+            userRepository.findByEmail(userDetails.getEmail())
+                    .filter(existing -> !existing.getId().equals(id))
+                    .ifPresent(existing -> { throw new RuntimeException("Email already exists"); });
+            user.setEmail(userDetails.getEmail());
+        }
+
+        if (userDetails.getPassword() != null && !userDetails.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(userDetails.getPassword()));
+        }
+
+        if (userDetails.getRole() != null) {
+            user.setRole(userDetails.getRole());
+        }
+
+        return userRepository.save(user);
     }
 
     public void deleteUser(Long id) {
