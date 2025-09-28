@@ -11,6 +11,7 @@ import jakarta.validation.constraints.Size;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import com.example.demo.enums.UserRole;
 
 import java.util.Collection;
 import java.util.List;
@@ -35,7 +36,8 @@ public class User implements UserDetails {
     private String password;
 
     @NotNull(message = "Role cannot be null")
-    private String role = "USER";
+    @Enumerated(EnumType.STRING)
+    private UserRole role = UserRole.USER;
 
     public User() {}
 
@@ -53,12 +55,12 @@ public class User implements UserDetails {
     public void setEmail(String email) { this.email = email; }
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
-    public String getRole() { return role; }
-    public void setRole(String role) { this.role = role; }
+    public UserRole getRole() { return role; }
+    public void setRole(UserRole role) { this.role = role; }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_" + role));
+        return List.of(new SimpleGrantedAuthority(role.getAuthority()));
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.entity.User;
+import com.example.demo.enums.UserRole;
 import com.example.demo.repository.UserRepository;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +29,7 @@ public class UserService {
         }
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         if (user.getRole() == null) {
-            user.setRole("USER");
+            user.setRole(UserRole.USER);
         }
         return userRepository.save(user);
     }
@@ -43,7 +44,7 @@ public class UserService {
         }
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         if (user.getRole() == null) {
-            user.setRole("USER");
+            user.setRole(UserRole.USER);
         }
         return userRepository.save(user);
     }
