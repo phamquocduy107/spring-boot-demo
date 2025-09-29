@@ -1,6 +1,6 @@
 ﻿# User Entity Test Report
 
-**Date:** 2025-09-29 15:54:37
+**Date:** 2025-09-29 16:58:22
 **BaseUrl:** http://localhost:8080
 **Mode:** All
 

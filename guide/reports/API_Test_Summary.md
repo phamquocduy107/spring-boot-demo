@@ -1,13 +1,13 @@
 ﻿# API Test Summary
 
-Date: 2025-09-29 15:54:37
+Date: 2025-09-29 16:58:22
 Mode: All
 Entity: All
 BaseUrl: http://localhost:8080
-Total: 77
-Passed: 77
-Failed: 0
-Pass Rate: 100%
+Total: 100
+Passed: 93
+Failed: 7
+Pass Rate: 93%
 
 ## User
 {
@@ -31,10 +31,11 @@ Pass Rate: 100%
     "deleteNoAuth":  null,
     "createNoAuth":  401,
     "delete":  null,
-    "targetId":  85,
+    "targetId":  94,
     "update":  200,
     "getOne":  200,
     "getAll":  200,
+    "active":  200,
     "duplicate":  400,
     "getOneNoAuth":  401,
     "page":  200,
@@ -46,9 +47,10 @@ Pass Rate: 100%
     "getAllNoAuth":  401,
     "updateNoAuth":  401,
     "deleteNoAuth":  401,
+    "roots":  200,
     "createNoAuth":  401,
     "delete":  204,
-    "targetId":  58,
+    "targetId":  67,
     "update":  200,
     "getOne":  200,
     "getAll":  200,
@@ -74,11 +76,12 @@ Pass Rate: 100%
 
 ## Order
 {
+    "byStatus":  200,
     "getByNumberNoAuth":  401,
     "createFromCart":  200,
     "page":  200,
     "createFromCartNoAuth":  401,
-    "orderNumber":  "ORD-20250929-632",
+    "orderNumber":  "ORD-20250929-829",
     "getMyOrdersNoAuth":  401,
     "getRecent":  200,
     "getWithChanges":  200,
@@ -91,10 +94,11 @@ Pass Rate: 100%
     "getByNumber":  200,
     "updateNotes":  200,
     "getStatistics":  200,
-    "targetId":  19,
+    "targetId":  28,
     "updateDiscount":  200,
     "getByIdNoAuth":  401,
     "updateStatus":  200,
+    "pageMax":  200,
     "updateTax":  200
 }
 

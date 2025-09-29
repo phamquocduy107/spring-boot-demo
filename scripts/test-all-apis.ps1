@@ -246,6 +246,19 @@ $pUpdateNoAuth = $null
 $pDeleteAuth = $null
 $pDeleteNoAuth = $null
 $pPage = $null
+$pPageOut = $null
+$pPageNoAuth = $null
+$pPageBadSort = $null
+$pPageNeg = $null
+$pPage2 = $null
+$pGetActive = $null
+$pGetActiveNoAuth = $null
+$pPageTooBig = $null
+$pPageBadDir = $null
+$pGetNotFound = $null
+$pPageMax = $null
+$pPageNegPage = $null
+$pPageMissingDir = $null
 
 # Category results
 $cCreate = $null
@@ -260,6 +273,19 @@ $cUpdateNoAuth = $null
 $cDeleteAuth = $null
 $cDeleteNoAuth = $null
 $cPage = $null
+$cPageOut = $null
+$cPageNoAuth = $null
+$cPageBadSort = $null
+$cPageNeg = $null
+$cPage2 = $null
+$cGetRoots = $null
+$cGetRootsNoAuth = $null
+$cPageTooBig = $null
+$cPageBadDir = $null
+$cGetNotFound = $null
+$cPageMax = $null
+$cPageNegPage = $null
+$cPageMissingDir = $null
 
 # Cart results
 $cartGet = $null
@@ -297,6 +323,31 @@ $oGetNeedingAttention = $null
 $oGetRecent = $null
 $oGetStatistics = $null
 $oPage = $null
+$oPageForbidden = $null
+$oPageNoAuth = $null
+$oPageBadSort = $null
+$oPageNeg = $null
+$oPage2 = $null
+$oGetByStatus = $null
+$oGetByStatusNoAuth = $null
+$oPageTooBig = $null
+$oByStatusForbiddenUser = $null
+$oWithChangesForbiddenUser = $null
+$oNeedingAttentionForbiddenUser = $null
+$oRecentForbiddenUser = $null
+$oStatsForbiddenUser = $null
+$oGetOtherForbidden = $null
+$oGetNumberOtherForbidden = $null
+$oPageMax = $null
+$oPageNegPage = $null
+$oPageMissingDir = $null
+$oGetByIdNotFound = $null
+$oGetByNumberNotFound = $null
+
+# OpenAPI/Swagger results
+$openApiDocs = $null
+$swaggerUi = $null
+$openApiSwaggerConfig = $null
 
 if (${doUser} -and ${doCreate}) {
     # Prepare new user payload
@@ -800,6 +851,66 @@ if (${doProduct}) {
     } else {
         $failures += Add-Failure -TestName "Product Page negative size should be 400" -Expected "400" -Actual $pPageNeg.status -ResponseBody $pPageNeg.body -FailuresArray $failures
     }
+
+    # Product active list (authorized)
+    Write-Section "[Product] Get Active (authorized)"
+    $pGetActive = Try-InvokeJsonGet -Uri ($productsUrl + "/active") -Headers $authHeaders
+    if ($pGetActive.success -and $pGetActive.status -eq 200) {
+        Write-Host "Product active fetched" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Product Get Active should be 200" -Expected "200" -Actual $pGetActive.status -ResponseBody $pGetActive.body -FailuresArray $failures
+    }
+
+    # Product active list (no token)
+    Write-Section "[Product] Get Active (no token should be 401/403)"
+    $pGetActiveNoAuth = Try-InvokeJsonGet -Uri ($productsUrl + "/active") -Headers @{}
+    if (-not $pGetActiveNoAuth.success -and ($pGetActiveNoAuth.status -eq 401 -or $pGetActiveNoAuth.status -eq 403)) {
+        Write-Host "Product active unauthorized blocked ($($pGetActiveNoAuth.status))" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Product Get Active no token should be 401/403" -Expected "401/403" -Actual $pGetActiveNoAuth.status -ResponseBody $pGetActiveNoAuth.body -FailuresArray $failures
+    }
+
+    # Size too big (>100)
+    Write-Section "[Product] Page (size too big should be 400)"
+    $pPageTooBig = Try-InvokeJsonGet -Uri ($productsUrl + "/page?page=0&size=101&sort=id,desc") -Headers $authHeaders
+    if (-not $pPageTooBig.success -and $pPageTooBig.status -eq 400) {
+        Write-Host "Product page size too big rejected (400)" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Product Page size>100 should be 400" -Expected "400" -Actual $pPageTooBig.status -ResponseBody $pPageTooBig.body -FailuresArray $failures
+    }
+
+    # Invalid sort direction
+    Write-Section "[Product] Page (invalid sort direction should be 400)"
+    $pPageBadDir = Try-InvokeJsonGet -Uri ($productsUrl + "/page?page=0&size=5&sort=id,sideways") -Headers $authHeaders
+    if (-not $pPageBadDir.success -and $pPageBadDir.status -eq 400) {
+        Write-Host "Product page invalid sort direction rejected (400)" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Product Page invalid sort direction should be 400" -Expected "400" -Actual $pPageBadDir.status -ResponseBody $pPageBadDir.body -FailuresArray $failures
+    }
+
+    # Get non-existent product
+    Write-Section "[Product] Get By Id (not found should be 404)"
+    $pGetNotFound = Try-InvokeJsonGet -Uri ($productsUrl + "/99999999") -Headers $authHeaders
+    if (-not $pGetNotFound.success -and $pGetNotFound.status -eq 404) {
+        Write-Host "Product not found returns 404" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Product Get non-existent should be 404" -Expected "404" -Actual $pGetNotFound.status -ResponseBody $pGetNotFound.body -FailuresArray $failures
+    }
+
+    # Page size boundary = 100
+    Write-Section "[Product] Page (size 100 boundary)"
+    $pPageMax = Try-InvokeJsonGet -Uri ($productsUrl + "/page?page=0&size=100&sort=id,desc") -Headers $authHeaders
+    if ($pPageMax.success -and $pPageMax.status -eq 200) { Write-Host "Product page size 100 OK" -ForegroundColor Green } else { $failures += Add-Failure -TestName "Product Page size=100 should be 200" -Expected "200" -Actual $pPageMax.status -ResponseBody $pPageMax.body -FailuresArray $failures }
+
+    # Negative page number
+    Write-Section "[Product] Page (negative page should be 400)"
+    $pPageNegPage = Try-InvokeJsonGet -Uri ($productsUrl + "/page?page=-1&size=5&sort=id,desc") -Headers $authHeaders
+    if (-not $pPageNegPage.success -and $pPageNegPage.status -eq 400) { Write-Host "Product negative page rejected (400)" -ForegroundColor Green } else { $failures += Add-Failure -TestName "Product Page negative page should be 400" -Expected "400" -Actual $pPageNegPage.status -ResponseBody $pPageNegPage.body -FailuresArray $failures }
+
+    # Missing sort direction (invalid format)
+    Write-Section "[Product] Page (missing sort direction should be 400)"
+    $pPageMissingDir = Try-InvokeJsonGet -Uri ($productsUrl + "/page?page=0&size=5&sort=id") -Headers $authHeaders
+    if (-not $pPageMissingDir.success -and $pPageMissingDir.status -eq 400) { Write-Host "Product missing sort direction rejected (400)" -ForegroundColor Green } else { $failures += Add-Failure -TestName "Product Page missing sort dir should be 400" -Expected "400" -Actual $pPageMissingDir.status -ResponseBody $pPageMissingDir.body -FailuresArray $failures }
 }
 
 if (${doProduct} -and ${doGet} -and $pTargetId) {
@@ -1045,6 +1156,66 @@ if (${doCategory}) {
     } else {
         $failures += Add-Failure -TestName "Category Page negative size should be 400" -Expected "400" -Actual $cPageNeg.status -ResponseBody $cPageNeg.body -FailuresArray $failures
     }
+
+    # Category roots (authorized)
+    Write-Section "[Category] Get Roots (authorized)"
+    $cGetRoots = Try-InvokeJsonGet -Uri ($categoriesUrl + "/roots") -Headers $authHeaders
+    if ($cGetRoots.success -and $cGetRoots.status -eq 200) {
+        Write-Host "Category roots fetched" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Category Get Roots should be 200" -Expected "200" -Actual $cGetRoots.status -ResponseBody $cGetRoots.body -FailuresArray $failures
+    }
+
+    # Category roots (no token)
+    Write-Section "[Category] Get Roots (no token should be 401/403)"
+    $cGetRootsNoAuth = Try-InvokeJsonGet -Uri ($categoriesUrl + "/roots") -Headers @{}
+    if (-not $cGetRootsNoAuth.success -and ($cGetRootsNoAuth.status -eq 401 -or $cGetRootsNoAuth.status -eq 403)) {
+        Write-Host "Category roots unauthorized blocked ($($cGetRootsNoAuth.status))" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Category Get Roots no token should be 401/403" -Expected "401/403" -Actual $cGetRootsNoAuth.status -ResponseBody $cGetRootsNoAuth.body -FailuresArray $failures
+    }
+
+    # Size too big (>100)
+    Write-Section "[Category] Page (size too big should be 400)"
+    $cPageTooBig = Try-InvokeJsonGet -Uri ($categoriesUrl + "/page?page=0&size=101&sort=id,desc") -Headers $authHeaders
+    if (-not $cPageTooBig.success -and $cPageTooBig.status -eq 400) {
+        Write-Host "Category page size too big rejected (400)" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Category Page size>100 should be 400" -Expected "400" -Actual $cPageTooBig.status -ResponseBody $cPageTooBig.body -FailuresArray $failures
+    }
+
+    # Invalid sort direction
+    Write-Section "[Category] Page (invalid sort direction should be 400)"
+    $cPageBadDir = Try-InvokeJsonGet -Uri ($categoriesUrl + "/page?page=0&size=5&sort=id,sideways") -Headers $authHeaders
+    if (-not $cPageBadDir.success -and $cPageBadDir.status -eq 400) {
+        Write-Host "Category page invalid sort direction rejected (400)" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Category Page invalid sort direction should be 400" -Expected "400" -Actual $cPageBadDir.status -ResponseBody $cPageBadDir.body -FailuresArray $failures
+    }
+
+    # Get non-existent category
+    Write-Section "[Category] Get By Id (not found should be 404)"
+    $cGetNotFound = Try-InvokeJsonGet -Uri ($categoriesUrl + "/99999999") -Headers $authHeaders
+    if (-not $cGetNotFound.success -and $cGetNotFound.status -eq 404) {
+        Write-Host "Category not found returns 404" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Category Get non-existent should be 404" -Expected "404" -Actual $cGetNotFound.status -ResponseBody $cGetNotFound.body -FailuresArray $failures
+    }
+
+    # Page size boundary = 100
+    Write-Section "[Category] Page (size 100 boundary)"
+    $cPageMax = Try-InvokeJsonGet -Uri ($categoriesUrl + "/page?page=0&size=100&sort=id,desc") -Headers $authHeaders
+    if ($cPageMax.success -and $cPageMax.status -eq 200) { Write-Host "Category page size 100 OK" -ForegroundColor Green } else { $failures += Add-Failure -TestName "Category Page size=100 should be 200" -Expected "200" -Actual $cPageMax.status -ResponseBody $cPageMax.body -FailuresArray $failures }
+
+    # Negative page number
+    Write-Section "[Category] Page (negative page should be 400)"
+    $cPageNegPage = Try-InvokeJsonGet -Uri ($categoriesUrl + "/page?page=-1&size=5&sort=id,desc") -Headers $authHeaders
+    if (-not $cPageNegPage.success -and $cPageNegPage.status -eq 400) { Write-Host "Category negative page rejected (400)" -ForegroundColor Green } else { $failures += Add-Failure -TestName "Category Page negative page should be 400" -Expected "400" -Actual $cPageNegPage.status -ResponseBody $cPageNegPage.body -FailuresArray $failures }
+
+    # Missing sort direction (invalid format)
+    Write-Section "[Category] Page (missing sort direction should be 400)"
+    $cPageMissingDir = Try-InvokeJsonGet -Uri ($categoriesUrl + "/page?page=0&size=5&sort=id") -Headers $authHeaders
+    if (-not $cPageMissingDir.success -and $cPageMissingDir.status -eq 400) { Write-Host "Category missing sort direction rejected (400)" -ForegroundColor Green } else { $failures += Add-Failure -TestName "Category Page missing sort dir should be 400" -Expected "400" -Actual $cPageMissingDir.status -ResponseBody $cPageMissingDir.body -FailuresArray $failures }
 }
 
 # Ensure we have a target category id for Get/Update/Delete
@@ -1501,6 +1672,28 @@ if (${doOrder} -and ${doGetAll}) {
     }
 }
 
+# =====================
+# OpenAPI / Swagger tests
+# =====================
+
+Write-Section "OpenAPI and Swagger UI"
+$openApiDocs = Try-InvokeJsonGet -Uri ($BaseUrl + "/v3/api-docs") -Headers @{}
+if ($openApiDocs.success -and $openApiDocs.status -eq 200) { Write-Host "/v3/api-docs OK" -ForegroundColor Green } else { $failures += Add-Failure -TestName "OpenAPI /v3/api-docs should be 200" -Expected "200" -Actual $openApiDocs.status -ResponseBody $openApiDocs.body -FailuresArray $failures }
+
+try {
+    $swaggerUi = @{ success = $false; status = $null; body = $null }
+    $resp = Invoke-RestMethod -Method GET -Uri ($BaseUrl + "/swagger-ui/index.html") -Headers @{}
+    if ($resp) { $swaggerUi = @{ success = $true; status = 200; body = $null } }
+} catch {
+    try { $code = $_.Exception.Response.StatusCode.value__ } catch { $code = $null }
+    $swaggerUi = @{ success = $false; status = $code; body = $null }
+}
+if ($swaggerUi.success -and $swaggerUi.status -eq 200) { Write-Host "/swagger-ui/index.html OK" -ForegroundColor Green } else { $failures += Add-Failure -TestName "Swagger UI should be 200" -Expected "200" -Actual $swaggerUi.status -ResponseBody $swaggerUi.body -FailuresArray $failures }
+
+# Extra OpenAPI swagger-config
+$openApiSwaggerConfig = Try-InvokeJsonGet -Uri ($BaseUrl + "/v3/api-docs/swagger-config") -Headers @{}
+if ($openApiSwaggerConfig.success -and $openApiSwaggerConfig.status -eq 200) { Write-Host "/v3/api-docs/swagger-config OK" -ForegroundColor Green } else { $failures += Add-Failure -TestName "OpenAPI /v3/api-docs/swagger-config should be 200" -Expected "200" -Actual $openApiSwaggerConfig.status -ResponseBody $openApiSwaggerConfig.body -FailuresArray $failures }
+
 if (${doOrder}) {
     Write-Section "[Order] Page (authorized - Admin only)"
     if ($oTargetId -eq $null) {
@@ -1559,6 +1752,57 @@ if (${doOrder}) {
     } else {
         $failures += Add-Failure -TestName "Order Page negative size should be 400" -Expected "400" -Actual $oPageNeg.status -ResponseBody $oPageNeg.body -FailuresArray $failures
     }
+
+    # Size too big (>100)
+    Write-Section "[Order] Page (size too big should be 400)"
+    $oPageTooBig = Try-InvokeJsonGet -Uri ($ordersUrl + "/page?page=0&size=101&sort=orderDate,desc") -Headers $authHeaders
+    if (-not $oPageTooBig.success -and $oPageTooBig.status -eq 400) {
+        Write-Host "Order page size too big rejected (400)" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Order Page size>100 should be 400" -Expected "400" -Actual $oPageTooBig.status -ResponseBody $oPageTooBig.body -FailuresArray $failures
+    }
+
+    # Get orders by status (authorized - Admin only)
+    Write-Section "[Order] Get By Status (authorized - Admin only)"
+    $oGetByStatus = Try-InvokeJsonGet -Uri ($ordersUrl + "/status/PENDING") -Headers $authHeaders
+    if ($oGetByStatus.success -and $oGetByStatus.status -eq 200) {
+        Write-Host "Order by status fetched" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Order Get By Status should be 200" -Expected "200" -Actual $oGetByStatus.status -ResponseBody $oGetByStatus.body -FailuresArray $failures
+    }
+
+    # Get orders by status (no token)
+    Write-Section "[Order] Get By Status (no token should be 401/403)"
+    $oGetByStatusNoAuth = Try-InvokeJsonGet -Uri ($ordersUrl + "/status/PENDING") -Headers @{}
+    if (-not $oGetByStatusNoAuth.success -and ($oGetByStatusNoAuth.status -eq 401 -or $oGetByStatusNoAuth.status -eq 403)) {
+        Write-Host "Order by status unauthorized blocked ($($oGetByStatusNoAuth.status))" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Order Get By Status no token should be 401/403" -Expected "401/403" -Actual $oGetByStatusNoAuth.status -ResponseBody $oGetByStatusNoAuth.body -FailuresArray $failures
+    }
+
+    # Page size boundary = 100
+    Write-Section "[Order] Page (size 100 boundary)"
+    $oPageMax = Try-InvokeJsonGet -Uri ($ordersUrl + "/page?page=0&size=100&sort=orderDate,desc") -Headers $authHeaders
+    if ($oPageMax.success -and $oPageMax.status -eq 200) { Write-Host "Order page size 100 OK" -ForegroundColor Green } else { $failures += Add-Failure -TestName "Order Page size=100 should be 200" -Expected "200" -Actual $oPageMax.status -ResponseBody $oPageMax.body -FailuresArray $failures }
+
+    # Negative page number
+    Write-Section "[Order] Page (negative page should be 400)"
+    $oPageNegPage = Try-InvokeJsonGet -Uri ($ordersUrl + "/page?page=-1&size=5&sort=orderDate,desc") -Headers $authHeaders
+    if (-not $oPageNegPage.success -and $oPageNegPage.status -eq 400) { Write-Host "Order negative page rejected (400)" -ForegroundColor Green } else { $failures += Add-Failure -TestName "Order Page negative page should be 400" -Expected "400" -Actual $oPageNegPage.status -ResponseBody $oPageNegPage.body -FailuresArray $failures }
+
+    # Missing sort direction (invalid format)
+    Write-Section "[Order] Page (missing sort direction should be 400)"
+    $oPageMissingDir = Try-InvokeJsonGet -Uri ($ordersUrl + "/page?page=0&size=5&sort=orderDate") -Headers $authHeaders
+    if (-not $oPageMissingDir.success -and $oPageMissingDir.status -eq 400) { Write-Host "Order missing sort direction rejected (400)" -ForegroundColor Green } else { $failures += Add-Failure -TestName "Order Page missing sort dir should be 400" -Expected "400" -Actual $oPageMissingDir.status -ResponseBody $oPageMissingDir.body -FailuresArray $failures }
+
+    # Not found by ID/Number
+    Write-Section "[Order] Get By ID (not found should be 404)"
+    $oGetByIdNotFound = Try-InvokeJsonGet -Uri ($ordersUrl + "/99999999") -Headers $authHeaders
+    if (-not $oGetByIdNotFound.success -and $oGetByIdNotFound.status -eq 404) { Write-Host "Order not found (ID) returns 404" -ForegroundColor Green } else { $failures += Add-Failure -TestName "Order Get non-existent ID should be 404" -Expected "404" -Actual $oGetByIdNotFound.status -ResponseBody $oGetByIdNotFound.body -FailuresArray $failures }
+
+    Write-Section "[Order] Get By Number (not found should be 404)"
+    $oGetByNumberNotFound = Try-InvokeJsonGet -Uri ($ordersUrl + "/number/ORD-NOPE-000") -Headers $authHeaders
+    if (-not $oGetByNumberNotFound.success -and $oGetByNumberNotFound.status -eq 404) { Write-Host "Order not found (Number) returns 404" -ForegroundColor Green } else { $failures += Add-Failure -TestName "Order Get non-existent Number should be 404" -Expected "404" -Actual $oGetByNumberNotFound.status -ResponseBody $oGetByNumberNotFound.body -FailuresArray $failures }
 }
 
 if (${doOrder} -and ${doUpdate} -and $oTargetId) {
@@ -1865,8 +2109,14 @@ foreach ($v in @(
     # Newly added pagination/OpenAPI results
     $pPage,$pPageOut,$pPageNoAuth,$pPageBadSort,$pPageNeg,
     $cPage,$cPageOut,$cPageNoAuth,$cPageBadSort,$cPageNeg,
-    $oPage,$oPageForbidden,$oPageNoAuth,$oPageBadSort,$oPageNeg,
-    $openApiDocs,$swaggerUi
+    $pPageTooBig,$pPageBadDir,$pGetNotFound,
+    $cPageTooBig,$cPageBadDir,$cGetNotFound,
+    $oPage,$oPageForbidden,$oPageNoAuth,$oPageBadSort,$oPageNeg,$oGetByStatus,$oGetByStatusNoAuth,
+    $oPageTooBig,$oByStatusForbiddenUser,$oWithChangesForbiddenUser,$oNeedingAttentionForbiddenUser,$oRecentForbiddenUser,$oStatsForbiddenUser,$oGetOtherForbidden,$oGetNumberOtherForbidden,
+    $oPageMax,$oPageNegPage,$oPageMissingDir,$oGetByIdNotFound,$oGetByNumberNotFound,
+    $pPageMax,$pPageNegPage,$pPageMissingDir,
+    $cPageMax,$cPageNegPage,$cPageMissingDir,
+    $openApiDocs,$swaggerUi,$openApiSwaggerConfig
 )) {
     if ($null -ne $v) { $executed += 1 }
 }
@@ -1917,6 +2167,7 @@ $summary += (ConvertTo-Json @{
     deleteNoAuth = if ($pDeleteNoAuth) { $pDeleteNoAuth.status } else { $null }
     targetId = $pTargetId
     page = if ($pPage) { $pPage.status } else { $null }
+    active = if ($pGetActive) { $pGetActive.status } else { $null }
 } -Depth 4)
 $summary += ""
 $summary += "## Category"
@@ -1934,6 +2185,7 @@ $summary += (ConvertTo-Json @{
     deleteNoAuth = if ($cDeleteNoAuth) { $cDeleteNoAuth.status } else { $null }
     targetId = $cTargetId
     page = if ($cPage) { $cPage.status } else { $null }
+    roots = if ($cGetRoots) { $cGetRoots.status } else { $null }
 } -Depth 4)
 $summary += ""
 $summary += "## Cart"
@@ -1974,6 +2226,8 @@ $summary += (ConvertTo-Json @{
     targetId = $oTargetId
     orderNumber = $oOrderNumber
     page = if ($oPage) { $oPage.status } else { $null }
+    byStatus = if ($oGetByStatus) { $oGetByStatus.status } else { $null }
+    pageMax = if ($oPageMax) { $oPageMax.status } else { $null }
 } -Depth 4)
 
 # Expected vs Actual section
