@@ -32,4 +32,12 @@ These rules govern how we collaborate. They can be updated or extended at any ti
 - Provide examples of how the implemented feature works
 - Explain both the "what" and "why" of each implementation step
 
+7) Do Not Touch Working Features
+- **CRITICAL RULE**: Never modify, refactor, or change any code/configuration that is already working properly
+- Before making any changes, verify if the feature is already functioning correctly
+- If a feature is working (APIs returning correct responses, no errors in logs), leave it untouched
+- Only fix broken features or add new functionality when explicitly requested
+- When in doubt, ask for permission before modifying working code
+- This applies to: controllers, services, entities, configurations, scripts, and any other components
+
 — End of current rules —

@@ -55,16 +55,39 @@ public class CategoryService {
     public Category updateCategory(Long id, Category category) {
         Category existing = categoryRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Category not found"));
-        
-        validateCategory(category);
-        ensureUniqueSlug(category, id);
-        
-        existing.setName(category.getName());
-        existing.setSlug(category.getSlug());
-        existing.setDescription(category.getDescription());
-        existing.setParent(category.getParent());
-        existing.setIsActive(category.getIsActive());
-        
+
+        // Partial update: only overwrite with non-null fields from request
+        // Name
+        if (category.getName() != null) {
+            String newName = category.getName().trim();
+            if (newName.isEmpty() || newName.length() < 2 || newName.length() > 100) {
+                throw new IllegalArgumentException("Category name must be between 2 and 100 characters");
+            }
+            existing.setName(newName);
+        }
+
+        // Slug
+        if (category.getSlug() != null) {
+            // Ensure provided slug is unique (excluding current id)
+            ensureUniqueSlug(category, id);
+            existing.setSlug(category.getSlug());
+        }
+
+        // Description
+        if (category.getDescription() != null) {
+            existing.setDescription(category.getDescription());
+        }
+
+        // Parent (only set if non-null to avoid accidental nulling)
+        if (category.getParent() != null) {
+            existing.setParent(category.getParent());
+        }
+
+        // Active flag
+        if (category.getIsActive() != null) {
+            existing.setIsActive(category.getIsActive());
+        }
+
         Category saved = categoryRepository.save(existing);
         cacheCategory(saved);
         evictCache();

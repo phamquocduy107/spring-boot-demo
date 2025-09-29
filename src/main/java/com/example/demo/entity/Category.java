@@ -1,5 +1,6 @@
 package com.example.demo.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -32,9 +33,11 @@ public class Category {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
+    @JsonIgnore
     private Category parent;
 
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Category> children = new ArrayList<>();
 
     @Column(name = "is_active", nullable = false)

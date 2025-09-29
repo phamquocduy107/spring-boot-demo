@@ -69,7 +69,7 @@ public class ProductController {
     public ResponseEntity<?> updateProduct(@PathVariable Long id, @RequestBody Product productDetails) {
         try {
             Product updatedProduct = productService.updateProduct(id, productDetails);
-            return ResponseEntity.ok(updatedProduct);
+            return ResponseEntity.ok(DtoMapper.toProductDTO(updatedProduct));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         } catch (Exception e) {

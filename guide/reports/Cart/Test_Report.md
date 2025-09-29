@@ -1,27 +1,27 @@
 ﻿# Cart Entity Test Report
 
-**Date:** 2025-09-29 00:07:29
+**Date:** 2025-09-29 14:04:46
 **BaseUrl:** http://localhost:8080
 **Mode:** All
 
 ## Summary
-- **Total Tests:** 0
-- **Passed:** 0
+- **Total Tests:** 10
+- **Passed:** 10
 - **Failed:** 0
-- **Pass Rate:** 0%
+- **Pass Rate:** 100%
 
 ## Test Results
 
-- **Update Quantity:** Expected 200, Actual: Not executed
-- **Clear Cart (no token):** Expected 401/403, Actual: Not executed
-- **Add Item:** Expected 200, Actual: Not executed
-- **Clear Cart:** Expected 200/204, Actual: Not executed
-- **Remove Item (no token):** Expected 401/403, Actual: Not executed
-- **Update Quantity (no token):** Expected 401/403, Actual: Not executed
-- **Get Cart (no token):** Expected 401/403, Actual: Not executed
-- **Get Cart:** Expected 200/404, Actual: Not executed
-- **Remove Item:** Expected 200/204, Actual: Not executed
-- **Add Item (no token):** Expected 401/403, Actual: Not executed
+- **Update Quantity:** Expected 200, Actual: 200
+- **Clear Cart (no token):** Expected 401/403, Actual: 401
+- **Add Item:** Expected 200, Actual: 200
+- **Clear Cart:** Expected 200/204, Actual: 204
+- **Remove Item (no token):** Expected 401/403, Actual: 401
+- **Update Quantity (no token):** Expected 401/403, Actual: 401
+- **Get Cart (no token):** Expected 401/403, Actual: 401
+- **Get Cart:** Expected 200/404, Actual: 200
+- **Remove Item:** Expected 200/204, Actual: 204
+- **Add Item (no token):** Expected 401/403, Actual: 401
 
 ## Failed Tests
 

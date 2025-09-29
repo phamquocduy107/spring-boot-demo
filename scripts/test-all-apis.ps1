@@ -1,4 +1,4 @@
-# Comprehensive API Test Script
+﻿# Comprehensive API Test Script
 # - Tests all entities: User, Product, Category, Cart, Order
 # - Logs in as admin (from rule.md)
 # - Performs CRUD operations for each entity
@@ -107,12 +107,21 @@ function Try-InvokeJsonPut {
         $err = $_
         $statusCode = $null
         $respBody = $null
+        $rawText = $null
         try { $statusCode = $_.Exception.Response.StatusCode.value__ } catch {}
         try {
             $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
             $text = $reader.ReadToEnd()
             $reader.Close()
-            if ($text) { $respBody = $text | ConvertFrom-Json }
+            if ($text) {
+                $rawText = $text
+                try {
+                    $respBody = $text | ConvertFrom-Json
+                } catch {
+                    # Fallback: expose raw text so reports can show actual server message
+                    $respBody = @{ message = $rawText }
+                }
+            }
         } catch {}
         return @{ success = $false; status = $statusCode; body = $respBody; error = $err }
     }
@@ -297,12 +306,7 @@ if (${doUser} -and ${doCreate}) {
         Write-Host "Create success: id=$($create1.body.id) email=$($create1.body.email)" -ForegroundColor Green
     } else {
         Write-Host "Create failed ($($create1.status)): $($create1.body | ConvertTo-Json -Depth 10)" -ForegroundColor Red
-        $failures += @{
-            test = "Create User should succeed";
-            expected = "200 OK";
-            actual = $create1.status;
-            details = ($create1.body | ConvertTo-Json -Depth 10)
-        }
+        $failures += Add-Failure -TestName "Create User should succeed" -Expected "200 OK" -Actual $create1.status -ResponseBody $create1.body -FailuresArray $failures
     }
 
     Write-Section "Create Duplicate (should be 400)"
@@ -311,12 +315,7 @@ if (${doUser} -and ${doCreate}) {
         Write-Host "Duplicate email correctly rejected (400): $($create2.body | ConvertTo-Json -Depth 10)" -ForegroundColor Green
     } else {
         Write-Host "Unexpected duplicate result: success=$($create2.success) status=$($create2.status) body=$($create2.body | ConvertTo-Json -Depth 10)" -ForegroundColor Yellow
-        $failures += @{
-            test = "Create duplicate should be 400";
-            expected = "400 Bad Request";
-            actual = $create2.status;
-            details = ($create2.body | ConvertTo-Json -Depth 10)
-        }
+        $failures += Add-Failure -TestName "Create duplicate should be 400" -Expected "400 Bad Request" -Actual $create2.status -ResponseBody $create2.body -FailuresArray $failures
     }
 
     Write-Section "Create Without Token (should be 401/403)"
@@ -325,12 +324,7 @@ if (${doUser} -and ${doCreate}) {
         Write-Host "Unauthorized access correctly blocked ($($create3.status))" -ForegroundColor Green
     } else {
         Write-Host "Unexpected unauth result: success=$($create3.success) status=$($create3.status)" -ForegroundColor Yellow
-        $failures += @{
-            test = "Create without token should be 401/403";
-            expected = "401/403";
-            actual = $create3.status;
-            details = if ($create3.body) { ($create3.body | ConvertTo-Json -Depth 10) } else { $null }
-        }
+        $failures += Add-Failure -TestName "Create without token should be 401/403" -Expected "401/403" -Actual $create3.status -ResponseBody $create3.body -FailuresArray $failures
     }
 }
 
@@ -561,6 +555,37 @@ function New-OrderPayload {
     }
 }
 
+function Add-Failure {
+    param(
+        [string]$TestName,
+        [string]$Expected,
+        [int]$Actual,
+        [object]$ResponseBody,
+        [array]$FailuresArray
+    )
+    
+    $errorMsg = "No error message available"
+    if ($ResponseBody) {
+        if ($ResponseBody.error) {
+            $errorMsg = $ResponseBody.error
+        } elseif ($ResponseBody.message) {
+            $errorMsg = $ResponseBody.message
+        } elseif ($ResponseBody.detail) {
+            $errorMsg = $ResponseBody.detail
+        }
+    }
+    
+    $failure = @{
+        test = $TestName
+        expected = $Expected
+        actual = $Actual
+        details = if ($ResponseBody) { ($ResponseBody | ConvertTo-Json -Depth 10) } else { $null }
+        errorMessage = $errorMsg
+    }
+    
+    return $failure
+}
+
 function Write-EntityReport {
     param(
         [string]$Entity,
@@ -616,8 +641,9 @@ function Write-EntityReport {
             $entitySummary += "### $i. $($failure.test)"
             $entitySummary += "- **Expected:** $($failure.expected)"
             $entitySummary += "- **Actual:** $($failure.actual)"
+            $entitySummary += "- **Error Message:** $($failure.errorMessage)"
             if ($failure.details) {
-                $entitySummary += "- **Details:**"
+                $entitySummary += "- **Full Response:**"
                 $entitySummary += '```json'
                 $entitySummary += $failure.details
                 $entitySummary += '```'
@@ -749,19 +775,24 @@ if (${doProduct} -and ${doGet} -and $pTargetId) {
 
 if (${doProduct} -and ${doUpdate} -and $pTargetId) {
     $pIdUrl = "$productsUrl/$pTargetId"
-    $pUpdatePayload = @{ name = "Updated Product"; price = 79.99; stockQuantity = 5 }
+    # Fetch current product to preserve required relations (e.g., category)
+    $pCurrent = Try-InvokeJsonGet -Uri $pIdUrl -Headers $authHeaders
+    $currentCategoryId = $null
+    if ($pCurrent.success -and $pCurrent.body -and $pCurrent.body.category -and $pCurrent.body.category.id) {
+        $currentCategoryId = $pCurrent.body.category.id
+    }
+    $pUpdatePayload = @{ 
+        price = 79.99; 
+        stockQuantity = 5
+    }
+    if ($currentCategoryId) { $pUpdatePayload.category = @{ id = $currentCategoryId } }
     Write-Section "[Product] Update (authorized)"
     $pUpdateAuth = Try-InvokeJsonPut -Uri $pIdUrl -Headers $authHeaders -Body $pUpdatePayload
     if ($pUpdateAuth.success -and $pUpdateAuth.status -eq 200) {
         Write-Host "Product update success id=$pTargetId" -ForegroundColor Green
     } else {
         Write-Host "Product update failed ($($pUpdateAuth.status))" -ForegroundColor Red
-        $failures += @{
-            test = "Product Update with token should be 200";
-            expected = "200";
-            actual = $pUpdateAuth.status;
-            details = ($pUpdateAuth.body | ConvertTo-Json -Depth 10)
-        }
+        $failures += Add-Failure -TestName "Product Update with token should be 200" -Expected "200" -Actual $pUpdateAuth.status -ResponseBody $pUpdateAuth.body -FailuresArray $failures
     }
 
     Write-Section "[Product] Update (without token should be 401/403)"
@@ -1074,7 +1105,7 @@ if (${doCart}) {
     # Only test cart operations if we have a product to work with
     if ($pTargetId) {
         Write-Section "[Cart] Add Item (authorized)"
-        $addItemUrl = "$cartUrl/items?productId=$pTargetId&quantity=2"
+        $addItemUrl = $cartUrl + "/items?productId=" + $pTargetId + "&quantity=2"
         $cartAddItem = Try-InvokeJsonPost -Uri $addItemUrl -Headers $authHeaders -Body $null
         if ($cartAddItem.success -and $cartAddItem.status -eq 200) {
             Write-Host "Item added to cart successfully" -ForegroundColor Green
@@ -1103,18 +1134,24 @@ if (${doCart}) {
         }
 
         Write-Section "[Cart] Update Quantity (authorized)"
-        $updateQtyUrl = "$cartUrl/items/$pTargetId?quantity=5"
-        $cartUpdateQty = Try-InvokeJsonPut -Uri $updateQtyUrl -Headers $authHeaders -Body $null
+        Write-Host "Debug: pTargetId value = '$pTargetId'" -ForegroundColor Yellow
+        
+        # Validate pTargetId is a valid number
+        if (-not $pTargetId -or $pTargetId -notmatch '^\d+$') {
+            Write-Host "Error: pTargetId is not a valid number: '$pTargetId'" -ForegroundColor Red
+            $failures += Add-Failure -TestName "Cart Update Quantity - Invalid pTargetId" -Expected "Valid product ID" -Actual "Invalid ID: $pTargetId" -ResponseBody $null -FailuresArray $failures
+            $cartUpdateQty = @{ success = $false; status = 400; body = @{ error = "Invalid product ID: $pTargetId" } }
+        } else {
+            $updateQtyUrl = $cartUrl + "/items/" + $pTargetId + "?quantity=5"
+            Write-Host "Debug: updateQtyUrl = '$updateQtyUrl'" -ForegroundColor Yellow
+            $cartUpdateQty = Try-InvokeJsonPut -Uri $updateQtyUrl -Headers $authHeaders -Body $null
+        }
+        
         if ($cartUpdateQty.success -and $cartUpdateQty.status -eq 200) {
             Write-Host "Cart quantity updated successfully" -ForegroundColor Green
         } else {
             Write-Host "Update quantity failed ($($cartUpdateQty.status)): $($cartUpdateQty.body | ConvertTo-Json -Depth 10)" -ForegroundColor Red
-            $failures += @{
-                test = "Cart Update Quantity should be 200";
-                expected = "200";
-                actual = $cartUpdateQty.status;
-                details = ($cartUpdateQty.body | ConvertTo-Json -Depth 10)
-            }
+        $failures += Add-Failure -TestName "Cart Update Quantity should be 200" -Expected "200" -Actual $cartUpdateQty.status -ResponseBody $cartUpdateQty.body -FailuresArray $failures
         }
 
         Write-Section "[Cart] Update Quantity (without token should be 401/403)"
@@ -1132,7 +1169,7 @@ if (${doCart}) {
         }
 
         Write-Section "[Cart] Remove Item (authorized)"
-        $removeItemUrl = "$cartUrl/items/$pTargetId"
+        $removeItemUrl = $cartUrl + "/items/" + $pTargetId
         $cartRemoveItem = Try-InvokeDelete -Uri $removeItemUrl -Headers $authHeaders
         if ($cartRemoveItem.success -and ($cartRemoveItem.status -eq 200 -or $cartRemoveItem.status -eq 204)) {
             Write-Host "Item removed from cart successfully" -ForegroundColor Green
@@ -1214,7 +1251,7 @@ if (${doOrder} -and ${doCreate}) {
     
     if ($pTargetId) {
         Write-Section "[Order] Add item to cart for order creation"
-        $addItemUrl = "$cartUrl/items?productId=$pTargetId&quantity=2"
+        $addItemUrl = $cartUrl + "/items?productId=" + $pTargetId + "&quantity=2"
         $cartAddForOrder = Try-InvokeJsonPost -Uri $addItemUrl -Headers $authHeaders -Body $null
         if ($cartAddForOrder.success) {
             Write-Host "Item added to cart for order creation" -ForegroundColor Green
@@ -1224,6 +1261,21 @@ if (${doOrder} -and ${doCreate}) {
     }
 
     Write-Section "[Order] Create Order from Cart (authorized)"
+    
+    # Debug: Check cart before creating order
+    Write-Host "Debug: Checking cart before order creation..." -ForegroundColor Yellow
+    $cartCheck = Try-InvokeJsonGet -Uri $cartUrl -Headers $authHeaders
+    if ($cartCheck.success) {
+        $cartItemsCount = 0
+        try { $cartItemsCount = ($cartCheck.body.items | Measure-Object).Count } catch {}
+        Write-Host "Debug: Cart has $cartItemsCount items" -ForegroundColor Yellow
+        if ($cartItemsCount -eq 0) {
+            Write-Host "Warning: Cart is empty! Order creation may fail." -ForegroundColor Red
+        }
+    } else {
+        Write-Host "Debug: Failed to check cart: $($cartCheck.status)" -ForegroundColor Red
+    }
+    
     $oPayload = New-OrderPayload
     $oCreateFromCart = Try-InvokeJsonPost -Uri "$ordersUrl/create-from-cart" -Headers $authHeaders -Body $oPayload
     if ($oCreateFromCart.success -and ($oCreateFromCart.status -eq 200 -or $oCreateFromCart.status -eq 201)) {
@@ -1232,12 +1284,7 @@ if (${doOrder} -and ${doCreate}) {
         $oOrderNumber = $oCreateFromCart.body.orderNumber
     } else {
         Write-Host "Order creation failed ($($oCreateFromCart.status)): $($oCreateFromCart.body | ConvertTo-Json -Depth 10)" -ForegroundColor Red
-        $failures += @{
-            test = "Order Create from Cart should be 200/201";
-            expected = "200/201";
-            actual = $oCreateFromCart.status;
-            details = ($oCreateFromCart.body | ConvertTo-Json -Depth 10)
-        }
+        $failures += Add-Failure -TestName "Order Create from Cart should be 200/201" -Expected "200/201" -Actual $oCreateFromCart.status -ResponseBody $oCreateFromCart.body -FailuresArray $failures
     }
 
     Write-Section "[Order] Create Order from Cart (without token should be 401/403)"
@@ -1611,8 +1658,9 @@ if ($failures.Count -gt 0) {
         $lines += "${i}) $($f.test)"
         $lines += "- Expected: $($f.expected)"
         $lines += "- Actual: $($f.actual)"
+        $lines += "- Error Message: $($f.errorMessage)"
         if ($f.details) {
-            $lines += "- Details:"
+            $lines += "- Full Response:"
             $lines += '```'
             $lines += $f.details
             $lines += '```'

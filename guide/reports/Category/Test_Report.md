@@ -1,28 +1,28 @@
 ﻿# Category Entity Test Report
 
-**Date:** 2025-09-29 00:07:29
+**Date:** 2025-09-29 14:04:46
 **BaseUrl:** http://localhost:8080
 **Mode:** All
 
 ## Summary
-- **Total Tests:** 0
-- **Passed:** 0
+- **Total Tests:** 12
+- **Passed:** 12
 - **Failed:** 0
-- **Pass Rate:** 0%
+- **Pass Rate:** 100%
 
 ## Test Results
 
-- **Get by ID:** Expected 200, Actual: Not executed
-- **Get by ID (no token):** Expected 401/403, Actual: Not executed
-- **Get All Active (no token):** Expected 401/403, Actual: Not executed
-- **Update (no token):** Expected 401/403, Actual: Not executed
-- **Delete:** Expected 200/204, Actual: Not executed
-- **Create Category:** Expected 200/201, Actual: Not executed
-- **Get All Active:** Expected 200, Actual: Not executed
-- **Create (no token):** Expected 401/403, Actual: Not executed
-- **Create Duplicate Slug:** Expected 400, Actual: Not executed
-- **Update:** Expected 200, Actual: Not executed
-- **Delete (no token):** Expected 401/403, Actual: Not executed
+- **Get by ID:** Expected 200, Actual: 200
+- **Get by ID (no token):** Expected 401/403, Actual: 401
+- **Get All Active (no token):** Expected 401/403, Actual: 401
+- **Update (no token):** Expected 401/403, Actual: 401
+- **Delete:** Expected 200/204, Actual: 204
+- **Create Category:** Expected 200/201, Actual: 200
+- **Get All Active:** Expected 200, Actual: 200
+- **Create (no token):** Expected 401/403, Actual: 401
+- **Create Duplicate Slug:** Expected 400, Actual: 400
+- **Update:** Expected 200, Actual: 200
+- **Delete (no token):** Expected 401/403, Actual: 401
 
 ## Failed Tests
 
