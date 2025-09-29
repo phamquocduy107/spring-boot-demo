@@ -1,6 +1,6 @@
 ﻿# Cart Entity Test Report
 
-**Date:** 2025-09-29 14:04:46
+**Date:** 2025-09-29 15:54:37
 **BaseUrl:** http://localhost:8080
 **Mode:** All
 

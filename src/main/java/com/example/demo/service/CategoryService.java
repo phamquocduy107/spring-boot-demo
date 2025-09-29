@@ -7,6 +7,10 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.time.Duration;
 import java.util.*;
@@ -49,6 +53,15 @@ public class CategoryService {
             cacheCategory(category.get());
         }
         return category;
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Category> getCategoriesPage(int page, int size, String sort) {
+        String[] parts = sort != null ? sort.split(",") : new String[] {"id","desc"};
+        String sortBy = parts.length > 0 && parts[0] != null && !parts[0].isBlank() ? parts[0] : "id";
+        Sort.Direction dir = (parts.length > 1 && parts[1] != null && parts[1].equalsIgnoreCase("asc")) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(dir, sortBy));
+        return categoryRepository.findAll(pageable);
     }
 
     @Transactional

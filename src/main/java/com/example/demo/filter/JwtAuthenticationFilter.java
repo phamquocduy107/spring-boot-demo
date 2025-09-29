@@ -35,6 +35,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String method = request.getMethod();
         String authorizationHeader = request.getHeader("Authorization");
 
+        // Skip JWT processing for Swagger/OpenAPI resources
+        if (requestUri.startsWith("/v3/api-docs") || requestUri.startsWith("/swagger-ui") || "/swagger-ui.html".equals(requestUri)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String username = null;
         String jwt = null;
 

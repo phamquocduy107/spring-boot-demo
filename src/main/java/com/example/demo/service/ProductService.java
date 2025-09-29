@@ -9,6 +9,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @Service
 @Transactional
@@ -36,6 +40,15 @@ public class ProductService {
     @Transactional(readOnly = true)
     public List<Product> getAllProducts() {
         return productRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Product> getProductsPage(int page, int size, String sort) {
+        String[] parts = sort.split(",");
+        String sortBy = parts.length > 0 ? parts[0] : "id";
+        Sort.Direction dir = (parts.length > 1 && parts[1].equalsIgnoreCase("asc")) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(dir, sortBy));
+        return productRepository.findAll(pageable);
     }
     
     // Get product by ID

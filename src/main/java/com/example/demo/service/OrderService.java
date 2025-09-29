@@ -17,6 +17,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 @Service
 @Transactional
@@ -223,6 +227,16 @@ public class OrderService {
             .stream()
             .map(OrderDTO::new)
             .collect(Collectors.toList());
+    }
+
+    // Paginated orders (admin)
+    @Transactional(readOnly = true)
+    public Page<OrderDTO> getOrdersPage(int page, int size, String sort) {
+        String[] parts = sort != null ? sort.split(",") : new String[] {"orderDate","desc"};
+        String sortBy = parts.length > 0 && parts[0] != null && !parts[0].isBlank() ? parts[0] : "orderDate";
+        Sort.Direction dir = (parts.length > 1 && parts[1] != null && parts[1].equalsIgnoreCase("asc")) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(dir, sortBy));
+        return orderRepository.findAll(pageable).map(OrderDTO::new);
     }
 
     // Get orders by date range

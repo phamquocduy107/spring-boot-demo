@@ -1,11 +1,11 @@
 ﻿# API Test Summary
 
-Date: 2025-09-29 14:04:46
+Date: 2025-09-29 15:54:37
 Mode: All
 Entity: All
 BaseUrl: http://localhost:8080
-Total: 62
-Passed: 62
+Total: 77
+Passed: 77
 Failed: 0
 Pass Rate: 100%
 
@@ -26,34 +26,36 @@ Pass Rate: 100%
 
 ## Product
 {
-    "create":  200,
-    "deleteNoAuth":  null,
-    "getAll":  200,
     "getAllNoAuth":  401,
     "updateNoAuth":  401,
+    "deleteNoAuth":  null,
     "createNoAuth":  401,
     "delete":  null,
+    "targetId":  85,
+    "update":  200,
     "getOne":  200,
-    "getOneNoAuth":  401,
+    "getAll":  200,
     "duplicate":  400,
-    "targetId":  73,
-    "update":  200
+    "getOneNoAuth":  401,
+    "page":  200,
+    "create":  200
 }
 
 ## Category
 {
-    "create":  200,
-    "deleteNoAuth":  401,
-    "getAll":  200,
     "getAllNoAuth":  401,
     "updateNoAuth":  401,
+    "deleteNoAuth":  401,
     "createNoAuth":  401,
     "delete":  204,
+    "targetId":  58,
+    "update":  200,
     "getOne":  200,
-    "getOneNoAuth":  401,
+    "getAll":  200,
     "duplicate":  400,
-    "targetId":  46,
-    "update":  200
+    "getOneNoAuth":  401,
+    "page":  200,
+    "create":  200
 }
 
 ## Cart
@@ -72,27 +74,28 @@ Pass Rate: 100%
 
 ## Order
 {
-    "getNeedingAttention":  200,
-    "getByNumber":  200,
-    "updateDiscount":  200,
-    "getMyOrders":  200,
-    "updateStatus":  200,
-    "updateNotes":  200,
-    "getByIdNoAuth":  401,
-    "createFromCartNoAuth":  401,
-    "getRecent":  200,
     "getByNumberNoAuth":  401,
-    "targetId":  7,
-    "updateNotesNoAuth":  401,
-    "getStatistics":  200,
-    "orderNumber":  "ORD-20250929-750",
-    "updateStatusNoAuth":  401,
-    "getWithChanges":  200,
     "createFromCart":  200,
-    "getById":  200,
-    "updateTax":  200,
+    "page":  200,
+    "createFromCartNoAuth":  401,
+    "orderNumber":  "ORD-20250929-632",
     "getMyOrdersNoAuth":  401,
-    "updateShippingFee":  200
+    "getRecent":  200,
+    "getWithChanges":  200,
+    "updateStatusNoAuth":  401,
+    "updateNotesNoAuth":  401,
+    "getNeedingAttention":  200,
+    "getMyOrders":  200,
+    "getById":  200,
+    "updateShippingFee":  200,
+    "getByNumber":  200,
+    "updateNotes":  200,
+    "getStatistics":  200,
+    "targetId":  19,
+    "updateDiscount":  200,
+    "getByIdNoAuth":  401,
+    "updateStatus":  200,
+    "updateTax":  200
 }
 
 ## Expected vs Actual

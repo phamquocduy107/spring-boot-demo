@@ -41,6 +41,16 @@ public class ProductController {
         List<ProductDTO> products = productService.getAllProducts().stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
+
+    // Paginated products
+    @GetMapping("/page")
+    public ResponseEntity<?> getProductsPage(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "id,desc") String sort
+    ) {
+        return ResponseEntity.ok(productService.getProductsPage(page, size, sort).map(DtoMapper::toProductDTO));
+    }
     
     // Get product by ID
     @GetMapping("/{id}")

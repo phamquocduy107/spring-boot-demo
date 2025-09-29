@@ -245,6 +245,7 @@ $pUpdateAuth = $null
 $pUpdateNoAuth = $null
 $pDeleteAuth = $null
 $pDeleteNoAuth = $null
+$pPage = $null
 
 # Category results
 $cCreate = $null
@@ -258,6 +259,7 @@ $cUpdateAuth = $null
 $cUpdateNoAuth = $null
 $cDeleteAuth = $null
 $cDeleteNoAuth = $null
+$cPage = $null
 
 # Cart results
 $cartGet = $null
@@ -294,6 +296,7 @@ $oGetWithChanges = $null
 $oGetNeedingAttention = $null
 $oGetRecent = $null
 $oGetStatistics = $null
+$oPage = $null
 
 if (${doUser} -and ${doCreate}) {
     # Prepare new user payload
@@ -742,6 +745,63 @@ if (${doProduct} -and ${doGetAll}) {
     }
 }
 
+if (${doProduct}) {
+    Write-Section "[Product] Page (authorized)"
+    $pPage = Try-InvokeJsonGet -Uri ($productsUrl + "/page?page=0&size=5&sort=id,desc") -Headers $authHeaders
+    if ($pPage.success -and $pPage.status -eq 200) {
+        # Basic assertions on pagination content
+        $hasContent = $false; try { $hasContent = ($pPage.body.content | Measure-Object).Count -ge 0 } catch {}
+        $hasPageable = $null -ne $pPage.body.pageable
+        if ($hasPageable -and $hasContent) {
+            Write-Host "Product page fetched (items=$(($pPage.body.content | Measure-Object).Count))" -ForegroundColor Green
+        } else {
+            Write-Host "Product page structure unexpected" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "Product page failed ($($pPage.status))" -ForegroundColor Red
+        $failures += Add-Failure -TestName "Product Page should be 200" -Expected "200" -Actual $pPage.status -ResponseBody $pPage.body -FailuresArray $failures
+    }
+
+    # Out-of-range page should still return 200 with empty content
+    Write-Section "[Product] Page (out-of-range)"
+    $pPageOut = Try-InvokeJsonGet -Uri ($productsUrl + "/page?page=9999&size=5&sort=id,desc") -Headers $authHeaders
+    if ($pPageOut.success -and $pPageOut.status -eq 200) {
+        $count = 0; try { $count = ($pPageOut.body.content | Measure-Object).Count } catch {}
+        Write-Host "Product out-of-range page items=$count" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Product Page out-of-range should be 200" -Expected "200" -Actual $pPageOut.status -ResponseBody $pPageOut.body -FailuresArray $failures
+    }
+}
+
+if (${doProduct}) {
+    # Product page unauthorized
+    Write-Section "[Product] Page (no token should be 401/403)"
+    $pPageNoAuth = Try-InvokeJsonGet -Uri ($productsUrl + "/page?page=0&size=5&sort=id,desc") -Headers @{}
+    if (-not $pPageNoAuth.success -and ($pPageNoAuth.status -eq 401 -or $pPageNoAuth.status -eq 403)) {
+        Write-Host "Product page unauthorized blocked ($($pPageNoAuth.status))" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Product Page no token should be 401/403" -Expected "401/403" -Actual $pPageNoAuth.status -ResponseBody $pPageNoAuth.body -FailuresArray $failures
+    }
+
+    # Invalid sort
+    Write-Section "[Product] Page (invalid sort should be 400)"
+    $pPageBadSort = Try-InvokeJsonGet -Uri ($productsUrl + "/page?page=0&size=5&sort=@@,desc") -Headers $authHeaders
+    if (-not $pPageBadSort.success -and $pPageBadSort.status -eq 400) {
+        Write-Host "Product page invalid sort rejected (400)" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Product Page invalid sort should be 400" -Expected "400" -Actual $pPageBadSort.status -ResponseBody $pPageBadSort.body -FailuresArray $failures
+    }
+
+    # Negative size
+    Write-Section "[Product] Page (negative size should be 400)"
+    $pPageNeg = Try-InvokeJsonGet -Uri ($productsUrl + "/page?page=0&size=-1&sort=id,desc") -Headers $authHeaders
+    if (-not $pPageNeg.success -and $pPageNeg.status -eq 400) {
+        Write-Host "Product page negative size rejected (400)" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Product Page negative size should be 400" -Expected "400" -Actual $pPageNeg.status -ResponseBody $pPageNeg.body -FailuresArray $failures
+    }
+}
+
 if (${doProduct} -and ${doGet} -and $pTargetId) {
     $pIdUrl = "$productsUrl/$pTargetId"
     Write-Section "[Product] Get By Id (authorized)"
@@ -936,6 +996,54 @@ if (${doCategory} -and ${doGetAll}) {
             actual = $cGetAllNoAuth.status;
             details = if ($cGetAllNoAuth.body) { ($cGetAllNoAuth.body | ConvertTo-Json -Depth 10) } else { $null }
         }
+    }
+}
+
+if (${doCategory}) {
+    Write-Section "[Category] Page (authorized)"
+    $cPage = Try-InvokeJsonGet -Uri ($categoriesUrl + "/page?page=0&size=5&sort=id,desc") -Headers $authHeaders
+    if ($cPage.success -and $cPage.status -eq 200) {
+        $hasContent = $false; try { $hasContent = ($cPage.body.content | Measure-Object).Count -ge 0 } catch {}
+        if ($hasContent) { Write-Host "Category page fetched" -ForegroundColor Green } else { Write-Host "Category page structure unexpected" -ForegroundColor Yellow }
+    } else {
+        Write-Host "Category page failed ($($cPage.status))" -ForegroundColor Red
+        $failures += Add-Failure -TestName "Category Page should be 200" -Expected "200" -Actual $cPage.status -ResponseBody $cPage.body -FailuresArray $failures
+    }
+
+    # Out-of-range page
+    Write-Section "[Category] Page (out-of-range)"
+    $cPageOut = Try-InvokeJsonGet -Uri ($categoriesUrl + "/page?page=9999&size=5&sort=id,desc") -Headers $authHeaders
+    if (-not $cPageOut.success -or $cPageOut.status -ne 200) {
+        $failures += Add-Failure -TestName "Category Page out-of-range should be 200" -Expected "200" -Actual $cPageOut.status -ResponseBody $cPageOut.body -FailuresArray $failures
+    }
+}
+
+if (${doCategory}) {
+    # Category page unauthorized
+    Write-Section "[Category] Page (no token should be 401/403)"
+    $cPageNoAuth = Try-InvokeJsonGet -Uri ($categoriesUrl + "/page?page=0&size=5&sort=id,desc") -Headers @{}
+    if (-not $cPageNoAuth.success -and ($cPageNoAuth.status -eq 401 -or $cPageNoAuth.status -eq 403)) {
+        Write-Host "Category page unauthorized blocked ($($cPageNoAuth.status))" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Category Page no token should be 401/403" -Expected "401/403" -Actual $cPageNoAuth.status -ResponseBody $cPageNoAuth.body -FailuresArray $failures
+    }
+
+    # Invalid sort
+    Write-Section "[Category] Page (invalid sort should be 400)"
+    $cPageBadSort = Try-InvokeJsonGet -Uri ($categoriesUrl + "/page?page=0&size=5&sort=@@,desc") -Headers $authHeaders
+    if (-not $cPageBadSort.success -and $cPageBadSort.status -eq 400) {
+        Write-Host "Category page invalid sort rejected (400)" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Category Page invalid sort should be 400" -Expected "400" -Actual $cPageBadSort.status -ResponseBody $cPageBadSort.body -FailuresArray $failures
+    }
+
+    # Negative size
+    Write-Section "[Category] Page (negative size should be 400)"
+    $cPageNeg = Try-InvokeJsonGet -Uri ($categoriesUrl + "/page?page=0&size=-1&sort=id,desc") -Headers $authHeaders
+    if (-not $cPageNeg.success -and $cPageNeg.status -eq 400) {
+        Write-Host "Category page negative size rejected (400)" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Category Page negative size should be 400" -Expected "400" -Actual $cPageNeg.status -ResponseBody $cPageNeg.body -FailuresArray $failures
     }
 }
 
@@ -1393,6 +1501,66 @@ if (${doOrder} -and ${doGetAll}) {
     }
 }
 
+if (${doOrder}) {
+    Write-Section "[Order] Page (authorized - Admin only)"
+    if ($oTargetId -eq $null) {
+        # ensure at least one order exists by triggering the create flow quickly if needed is complex; just call page
+    }
+    $oPage = Try-InvokeJsonGet -Uri ($ordersUrl + "/page?page=0&size=5&sort=orderDate,desc") -Headers $authHeaders
+    if ($oPage.success -and $oPage.status -eq 200) {
+        Write-Host "Order page fetched" -ForegroundColor Green
+    } else {
+        Write-Host "Order page failed ($($oPage.status))" -ForegroundColor Red
+        $failures += Add-Failure -TestName "Order Page should be 200" -Expected "200" -Actual $oPage.status -ResponseBody $oPage.body -FailuresArray $failures
+    }
+
+    # Forbidden for non-admin
+    Write-Section "[Order] Page (forbidden for non-admin)"
+    # Create a normal user token
+    $userEmail = New-RandomEmail
+    $newUserPayload = @{ name = "Pagination Test User"; email = $userEmail; password = "pass1234"; role = "USER" }
+    $createUserResp = Try-InvokeJsonPost -Uri $usersUrl -Headers $authHeaders -Body $newUserPayload
+    if ($createUserResp.success) {
+        $userLogin = Try-InvokeJsonPost -Uri $loginUrl -Headers @{} -Body @{ email = $userEmail; password = "pass1234" }
+        if ($userLogin.success) {
+            $userHeaders = @{ Authorization = "Bearer $($userLogin.body.accessToken)" }
+            $oPageForbidden = Try-InvokeJsonGet -Uri ($ordersUrl + "/page?page=0&size=5") -Headers $userHeaders
+            if (-not $oPageForbidden.success -and ($oPageForbidden.status -eq 401 -or $oPageForbidden.status -eq 403)) {
+                Write-Host "Order page forbidden for normal user ($($oPageForbidden.status))" -ForegroundColor Green
+            } else {
+                $failures += Add-Failure -TestName "Order Page should be forbidden for user" -Expected "401/403" -Actual $oPageForbidden.status -ResponseBody $oPageForbidden.body -FailuresArray $failures
+            }
+        }
+    }
+
+    # Unauthorized page
+    Write-Section "[Order] Page (no token should be 401/403)"
+    $oPageNoAuth = Try-InvokeJsonGet -Uri ($ordersUrl + "/page?page=0&size=5&sort=orderDate,desc") -Headers @{}
+    if (-not $oPageNoAuth.success -and ($oPageNoAuth.status -eq 401 -or $oPageNoAuth.status -eq 403)) {
+        Write-Host "Order page unauthorized blocked ($($oPageNoAuth.status))" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Order Page no token should be 401/403" -Expected "401/403" -Actual $oPageNoAuth.status -ResponseBody $oPageNoAuth.body -FailuresArray $failures
+    }
+
+    # Invalid sort
+    Write-Section "[Order] Page (invalid sort should be 400)"
+    $oPageBadSort = Try-InvokeJsonGet -Uri ($ordersUrl + "/page?page=0&size=5&sort=@@,desc") -Headers $authHeaders
+    if (-not $oPageBadSort.success -and $oPageBadSort.status -eq 400) {
+        Write-Host "Order page invalid sort rejected (400)" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Order Page invalid sort should be 400" -Expected "400" -Actual $oPageBadSort.status -ResponseBody $oPageBadSort.body -FailuresArray $failures
+    }
+
+    # Negative size
+    Write-Section "[Order] Page (negative size should be 400)"
+    $oPageNeg = Try-InvokeJsonGet -Uri ($ordersUrl + "/page?page=0&size=-1&sort=orderDate,desc") -Headers $authHeaders
+    if (-not $oPageNeg.success -and $oPageNeg.status -eq 400) {
+        Write-Host "Order page negative size rejected (400)" -ForegroundColor Green
+    } else {
+        $failures += Add-Failure -TestName "Order Page negative size should be 400" -Expected "400" -Actual $oPageNeg.status -ResponseBody $oPageNeg.body -FailuresArray $failures
+    }
+}
+
 if (${doOrder} -and ${doUpdate} -and $oTargetId) {
     Write-Section "[Order] Update Order Status (authorized - Admin only)"
     $oUpdateStatusPayload = @{ status = "CONFIRMED" }
@@ -1584,6 +1752,7 @@ Write-Section "Summary"
         getOneStatus = if ($pGetOneAuth) { $pGetOneAuth.status } else { $null }
         getOneNoAuthStatus = if ($pGetOneNoAuth) { $pGetOneNoAuth.status } else { $null }
         updateStatus = if ($pUpdateAuth) { $pUpdateAuth.status } else { $null }
+        pageStatus = if ($pPage) { $pPage.status } else { $null }
         updateNoAuthStatus = if ($pUpdateNoAuth) { $pUpdateNoAuth.status } else { $null }
         deleteStatus = if ($pDeleteAuth) { $pDeleteAuth.status } else { $null }
         deleteNoAuthStatus = if ($pDeleteNoAuth) { $pDeleteNoAuth.status } else { $null }
@@ -1599,6 +1768,7 @@ Write-Section "Summary"
         getOneNoAuthStatus = if ($cGetOneNoAuth) { $cGetOneNoAuth.status } else { $null }
         updateStatus = if ($cUpdateAuth) { $cUpdateAuth.status } else { $null }
         updateNoAuthStatus = if ($cUpdateNoAuth) { $cUpdateNoAuth.status } else { $null }
+        pageStatus = if ($cPage) { $cPage.status } else { $null }
         deleteStatus = if ($cDeleteAuth) { $cDeleteAuth.status } else { $null }
         deleteNoAuthStatus = if ($cDeleteNoAuth) { $cDeleteNoAuth.status } else { $null }
         targetId = $cTargetId
@@ -1635,6 +1805,7 @@ Write-Section "Summary"
         getNeedingAttentionStatus = if ($oGetNeedingAttention) { $oGetNeedingAttention.status } else { $null }
         getRecentStatus = if ($oGetRecent) { $oGetRecent.status } else { $null }
         getStatisticsStatus = if ($oGetStatistics) { $oGetStatistics.status } else { $null }
+        pageStatus = if ($oPage) { $oPage.status } else { $null }
         targetId = $oTargetId
         orderNumber = $oOrderNumber
     }
@@ -1683,13 +1854,20 @@ $ts2 = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
 
 # Compute totals
 $executed = @()
-foreach ($v in @($create1,$create2,$create3,$getAllAuth,$getAllNoAuth,$getOneAuth,$getOneNoAuth,$updateAuth,$updateNoAuth,$deleteAuth,$deleteNoAuth,$afterDel,
-                  $pCreate,$pCreateDup,$pCreateNoAuth,$pGetAllAuth,$pGetAllNoAuth,$pGetOneAuth,$pGetOneNoAuth,$pUpdateAuth,$pUpdateNoAuth,$pDeleteAuth,$pDeleteNoAuth,$pAfterDel,
-                  $cCreate,$cCreateDup,$cCreateNoAuth,$cGetAllAuth,$cGetAllNoAuth,$cGetOneAuth,$cGetOneNoAuth,$cUpdateAuth,$cUpdateNoAuth,$cDeleteAuth,$cDeleteNoAuth,$cAfterDel,
-                  $cartGet,$cartGetNoAuth,$cartAddItem,$cartAddItemNoAuth,$cartUpdateQty,$cartUpdateQtyNoAuth,$cartRemoveItem,$cartRemoveItemNoAuth,$cartClear,$cartClearNoAuth,
-                  $oCreateFromCart,$oCreateFromCartNoAuth,$oGetById,$oGetByIdNoAuth,$oGetByNumber,$oGetByNumberNoAuth,$oGetMyOrders,$oGetMyOrdersNoAuth,
-                  $oUpdateStatus,$oUpdateStatusNoAuth,$oUpdateShippingFee,$oUpdateTax,$oUpdateDiscount,$oUpdateNotes,$oUpdateNotesNoAuth,
-                  $oGetWithChanges,$oGetNeedingAttention,$oGetRecent,$oGetStatistics)) {
+foreach ($v in @(
+    $create1,$create2,$create3,$getAllAuth,$getAllNoAuth,$getOneAuth,$getOneNoAuth,$updateAuth,$updateNoAuth,$deleteAuth,$deleteNoAuth,$afterDel,
+    $pCreate,$pCreateDup,$pCreateNoAuth,$pGetAllAuth,$pGetAllNoAuth,$pGetOneAuth,$pGetOneNoAuth,$pUpdateAuth,$pUpdateNoAuth,$pDeleteAuth,$pDeleteNoAuth,$pAfterDel,
+    $cCreate,$cCreateDup,$cCreateNoAuth,$cGetAllAuth,$cGetAllNoAuth,$cGetOneAuth,$cGetOneNoAuth,$cUpdateAuth,$cUpdateNoAuth,$cDeleteAuth,$cDeleteNoAuth,$cAfterDel,
+    $cartGet,$cartGetNoAuth,$cartAddItem,$cartAddItemNoAuth,$cartUpdateQty,$cartUpdateQtyNoAuth,$cartRemoveItem,$cartRemoveItemNoAuth,$cartClear,$cartClearNoAuth,
+    $oCreateFromCart,$oCreateFromCartNoAuth,$oGetById,$oGetByIdNoAuth,$oGetByNumber,$oGetByNumberNoAuth,$oGetMyOrders,$oGetMyOrdersNoAuth,
+    $oUpdateStatus,$oUpdateStatusNoAuth,$oUpdateShippingFee,$oUpdateTax,$oUpdateDiscount,$oUpdateNotes,$oUpdateNotesNoAuth,
+    $oGetWithChanges,$oGetNeedingAttention,$oGetRecent,$oGetStatistics,
+    # Newly added pagination/OpenAPI results
+    $pPage,$pPageOut,$pPageNoAuth,$pPageBadSort,$pPageNeg,
+    $cPage,$cPageOut,$cPageNoAuth,$cPageBadSort,$cPageNeg,
+    $oPage,$oPageForbidden,$oPageNoAuth,$oPageBadSort,$oPageNeg,
+    $openApiDocs,$swaggerUi
+)) {
     if ($null -ne $v) { $executed += 1 }
 }
 $total = $executed.Count
@@ -1738,6 +1916,7 @@ $summary += (ConvertTo-Json @{
     delete = if ($pDeleteAuth) { $pDeleteAuth.status } else { $null }
     deleteNoAuth = if ($pDeleteNoAuth) { $pDeleteNoAuth.status } else { $null }
     targetId = $pTargetId
+    page = if ($pPage) { $pPage.status } else { $null }
 } -Depth 4)
 $summary += ""
 $summary += "## Category"
@@ -1754,6 +1933,7 @@ $summary += (ConvertTo-Json @{
     delete = if ($cDeleteAuth) { $cDeleteAuth.status } else { $null }
     deleteNoAuth = if ($cDeleteNoAuth) { $cDeleteNoAuth.status } else { $null }
     targetId = $cTargetId
+    page = if ($cPage) { $cPage.status } else { $null }
 } -Depth 4)
 $summary += ""
 $summary += "## Cart"
@@ -1793,6 +1973,7 @@ $summary += (ConvertTo-Json @{
     getStatistics = if ($oGetStatistics) { $oGetStatistics.status } else { $null }
     targetId = $oTargetId
     orderNumber = $oOrderNumber
+    page = if ($oPage) { $oPage.status } else { $null }
 } -Depth 4)
 
 # Expected vs Actual section

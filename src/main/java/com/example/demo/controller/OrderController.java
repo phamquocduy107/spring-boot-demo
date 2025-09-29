@@ -52,10 +52,10 @@ public class OrderController {
     }
 
     // Get order by ID
-    @GetMapping("/{orderId}")
+    @GetMapping("/{orderId:\\d+}")
     public ResponseEntity<?> getOrderById(
             @AuthenticationPrincipal User currentUser,
-            @PathVariable Long orderId) {
+            @PathVariable("orderId") Long orderId) {
         
         if (currentUser == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -136,10 +136,10 @@ public class OrderController {
     }
 
     // Update order status (Admin only)
-    @PutMapping("/{orderId}/status")
+    @PutMapping("/{orderId:\\d+}/status")
     public ResponseEntity<?> updateOrderStatus(
             @AuthenticationPrincipal User currentUser,
-            @PathVariable Long orderId,
+            @PathVariable("orderId") Long orderId,
             @RequestBody UpdateStatusRequest request) {
         
         if (currentUser == null) {
@@ -162,10 +162,10 @@ public class OrderController {
     }
 
     // Update shipping fee (Admin only)
-    @PutMapping("/{orderId}/shipping-fee")
+    @PutMapping("/{orderId:\\d+}/shipping-fee")
     public ResponseEntity<?> updateShippingFee(
             @AuthenticationPrincipal User currentUser,
-            @PathVariable Long orderId,
+            @PathVariable("orderId") Long orderId,
             @RequestBody UpdateShippingFeeRequest request) {
         
         if (currentUser == null) {
@@ -188,10 +188,10 @@ public class OrderController {
     }
 
     // Update tax amount (Admin only)
-    @PutMapping("/{orderId}/tax")
+    @PutMapping("/{orderId:\\d+}/tax")
     public ResponseEntity<?> updateTaxAmount(
             @AuthenticationPrincipal User currentUser,
-            @PathVariable Long orderId,
+            @PathVariable("orderId") Long orderId,
             @RequestBody UpdateTaxRequest request) {
         
         if (currentUser == null) {
@@ -214,10 +214,10 @@ public class OrderController {
     }
 
     // Update discount amount (Admin only)
-    @PutMapping("/{orderId}/discount")
+    @PutMapping("/{orderId:\\d+}/discount")
     public ResponseEntity<?> updateDiscountAmount(
             @AuthenticationPrincipal User currentUser,
-            @PathVariable Long orderId,
+            @PathVariable("orderId") Long orderId,
             @RequestBody UpdateDiscountRequest request) {
         
         if (currentUser == null) {
@@ -240,10 +240,10 @@ public class OrderController {
     }
 
     // Update order notes
-    @PutMapping("/{orderId}/notes")
+    @PutMapping("/{orderId:\\d+}/notes")
     public ResponseEntity<?> updateOrderNotes(
             @AuthenticationPrincipal User currentUser,
-            @PathVariable Long orderId,
+            @PathVariable("orderId") Long orderId,
             @RequestBody UpdateNotesRequest request) {
         
         if (currentUser == null) {
@@ -317,6 +317,20 @@ public class OrderController {
 
         List<OrderDTO> orders = orderService.getRecentOrders();
         return ResponseEntity.ok(orders);
+    }
+
+    // Paginated orders (Admin only)
+    @GetMapping("/page")
+    public ResponseEntity<?> getOrdersPage(
+            @AuthenticationPrincipal User currentUser,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "orderDate,desc") String sort
+    ) {
+        if (currentUser == null || currentUser.getRole() != UserRole.ADMIN) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied");
+        }
+        return ResponseEntity.ok(orderService.getOrdersPage(page, size, sort));
     }
 
     // Get order statistics (Admin only)
