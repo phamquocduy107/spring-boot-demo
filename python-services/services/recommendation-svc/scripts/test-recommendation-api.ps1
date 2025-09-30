@@ -50,6 +50,12 @@ try {
     $resp = Invoke-RestMethod -Uri "$BaseUrl/recommendations" -Method POST -Headers $headers -ContentType 'application/json' -Body $body -TimeoutSec 10
     Write-Host "Status: OK" -ForegroundColor Green
     Write-Host "Response: $($resp | ConvertTo-Json -Depth 5)" -ForegroundColor White
+    if ($resp.items -and $resp.items.Count -gt 0) {
+        Write-Host "Sample product info:" -ForegroundColor Cyan
+        Write-Host "  - Product: $($resp.items[0].name) (ID: $($resp.items[0].id))" -ForegroundColor Gray
+        Write-Host "  - Price: $($resp.items[0].price)" -ForegroundColor Gray
+        Write-Host "  - Category: $($resp.items[0].category.name)" -ForegroundColor Gray
+    }
 } catch {
     Write-Host "Status: ERROR" -ForegroundColor Red
     Write-Host "Message: $($_.Exception.Message)" -ForegroundColor Red

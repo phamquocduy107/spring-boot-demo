@@ -12,10 +12,12 @@ services:
     build: ../services/recommendation-svc
     environment:
       CATALOG_API_URL: http://host.docker.internal:8080
+      ANALYTICS_API_URL: http://host.docker.internal:8093
     ports:
       - "8091:8090"
     depends_on:
       - opensearch
+      - analytics-svc
 
   search-svc:
     build: ../services/search-svc
@@ -24,6 +26,16 @@ services:
       CATALOG_API_URL: http://host.docker.internal:8080
     ports:
       - "8092:8090"
+    depends_on:
+      - opensearch
+
+  analytics-svc:
+    build: ../services/analytics-svc
+    environment:
+      CATALOG_API_URL: http://host.docker.internal:8080
+      ORDERS_API_URL: http://host.docker.internal:8080
+    ports:
+      - "8093:8090"
     depends_on:
       - opensearch
 

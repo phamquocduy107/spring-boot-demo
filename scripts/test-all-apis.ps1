@@ -8,12 +8,36 @@
 param(
     [string]$BaseUrl = "http://localhost:8080",
     [ValidateSet("Create","GetAll","Get","Update","Delete","All")][string]$Mode = "All",
-    [ValidateSet("User","Product","Category","Cart","Order","All")][string]$Entity = "All",
+    [ValidateSet("User","Product","Category","Cart","Order","Recommendation","All")][string]$Entity = "All",
     [int]$ProductCategoryId = 1
 )
 
 function Write-Section($title) {
     Write-Host "`n==== $title ====\n" -ForegroundColor Cyan
+}
+
+function Write-Success($message) {
+    Write-Host "✅ $message" -ForegroundColor Green
+}
+
+function Write-Error($message) {
+    Write-Host "❌ $message" -ForegroundColor Red
+}
+
+function Write-Warning($message) {
+    Write-Host "⚠️ $message" -ForegroundColor Yellow
+}
+
+function Write-Info($message) {
+    Write-Host "ℹ️ $message" -ForegroundColor Blue
+}
+
+function Write-TestResult($testName, $expected, $actual, $success = $true) {
+    if ($success) {
+        Write-Host "  ✅ $testName`: Expected $expected, Got $actual" -ForegroundColor Green
+    } else {
+        Write-Host "  ❌ $testName`: Expected $expected, Got $actual" -ForegroundColor Red
+    }
 }
 
 function Invoke-JsonPost {
@@ -201,7 +225,7 @@ Write-Host "Orders URL: $ordersUrl"
 
 Write-Section "Login as Admin"
 $jwt = Get-AdminJwtToken -LoginUrl $loginUrl
-Write-Host "Obtained JWT (len=$($jwt.Length))" -ForegroundColor Green
+Write-Success "Obtained JWT (len=$($jwt.Length))"
 
 $authHeaders = @{ Authorization = "Bearer $jwt" }
 
@@ -219,6 +243,7 @@ ${doProduct} = ($Entity -eq "Product" -or $Entity -eq "All")
 ${doCategory} = ($Entity -eq "Category" -or $Entity -eq "All")
 ${doCart} = ($Entity -eq "Cart" -or $Entity -eq "All")
 ${doOrder} = ($Entity -eq "Order" -or $Entity -eq "All")
+${doRecommendation} = ($Entity -eq "Recommendation" -or $Entity -eq "All")
 
 # User results
 $create1 = $null
@@ -349,6 +374,48 @@ $openApiDocs = $null
 $swaggerUi = $null
 $openApiSwaggerConfig = $null
 
+# Recommendation results
+$recHealth = $null
+$recReadiness = $null
+$recBasic = $null
+$recWithLimit = $null
+$recWithCategory = $null
+$recWithActiveOnly = $null
+$recWithSeed = $null
+$recInvalidUserId = $null
+$recInvalidLimit = $null
+$recInvalidCategory = $null
+$recNoAuth = $null
+$recAnalyticsStatus = $null
+$recBestseller = $null
+$recTrending = $null
+$recHybrid = $null
+$recDashboard = $null
+$recLargeLimit = $null
+$recPerf1 = $null
+$recPerf2 = $null
+$recZeroLimit = $null
+
+# Analytics results
+$analyticsHealth = $null
+$analyticsReadiness = $null
+$analyticsBestsellers = $null
+$analyticsTrending = $null
+$analyticsCategories = $null
+$analyticsDashboard = $null
+$analyticsTimeRange = $null
+$analyticsCategoryFilter = $null
+
+# Search results
+$searchHealth = $null
+$searchReindex = $null
+$searchBasic = $null
+$searchPrice = $null
+$searchCategory = $null
+$searchSort = $null
+$searchComplex = $null
+$searchEmpty = $null
+
 if (${doUser} -and ${doCreate}) {
     # Prepare new user payload
     $newEmail = New-RandomEmail
@@ -357,27 +424,27 @@ if (${doUser} -and ${doCreate}) {
     Write-Section "Create User (should succeed)"
     $create1 = Try-InvokeJsonPost -Uri $usersUrl -Headers $authHeaders -Body $newUser
     if ($create1.success -and $create1.status -eq 200) {
-        Write-Host "Create success: id=$($create1.body.id) email=$($create1.body.email)" -ForegroundColor Green
+        Write-Success "Create success: id=$($create1.body.id) email=$($create1.body.email)"
     } else {
-        Write-Host "Create failed ($($create1.status)): $($create1.body | ConvertTo-Json -Depth 10)" -ForegroundColor Red
+        Write-Error "Create failed ($($create1.status)): $($create1.body | ConvertTo-Json -Depth 10)"
         $failures += Add-Failure -TestName "Create User should succeed" -Expected "200 OK" -Actual $create1.status -ResponseBody $create1.body -FailuresArray $failures
     }
 
     Write-Section "Create Duplicate (should be 400)"
     $create2 = Try-InvokeJsonPost -Uri $usersUrl -Headers $authHeaders -Body $newUser
     if (-not $create2.success -and $create2.status -eq 400) {
-        Write-Host "Duplicate email correctly rejected (400): $($create2.body | ConvertTo-Json -Depth 10)" -ForegroundColor Green
+        Write-Success "Duplicate email correctly rejected (400): $($create2.body | ConvertTo-Json -Depth 10)"
     } else {
-        Write-Host "Unexpected duplicate result: success=$($create2.success) status=$($create2.status) body=$($create2.body | ConvertTo-Json -Depth 10)" -ForegroundColor Yellow
+        Write-Warning "Unexpected duplicate result: success=$($create2.success) status=$($create2.status) body=$($create2.body | ConvertTo-Json -Depth 10)"
         $failures += Add-Failure -TestName "Create duplicate should be 400" -Expected "400 Bad Request" -Actual $create2.status -ResponseBody $create2.body -FailuresArray $failures
     }
 
     Write-Section "Create Without Token (should be 401/403)"
     $create3 = Try-InvokeJsonPost -Uri $usersUrl -Headers @{} -Body $newUser
     if (-not $create3.success -and ($create3.status -eq 401 -or $create3.status -eq 403)) {
-        Write-Host "Unauthorized access correctly blocked ($($create3.status))" -ForegroundColor Green
+        Write-Success "Unauthorized access correctly blocked ($($create3.status))"
     } else {
-        Write-Host "Unexpected unauth result: success=$($create3.success) status=$($create3.status)" -ForegroundColor Yellow
+        Write-Warning "Unexpected unauth result: success=$($create3.success) status=$($create3.status)"
         $failures += Add-Failure -TestName "Create without token should be 401/403" -Expected "401/403" -Actual $create3.status -ResponseBody $create3.body -FailuresArray $failures
     }
 }
@@ -388,9 +455,9 @@ if (${doUser} -and ${doGetAll}) {
     if ($getAllAuth.success -and $getAllAuth.status -eq 200) {
         $count = 0
         try { $count = ($getAllAuth.body | Measure-Object).Count } catch {}
-        Write-Host "Fetched users: $count" -ForegroundColor Green
+        Write-Success "Fetched users: $count"
     } else {
-        Write-Host "GetAll failed ($($getAllAuth.status)): $($getAllAuth.body | ConvertTo-Json -Depth 10)" -ForegroundColor Red
+        Write-Error "GetAll failed ($($getAllAuth.status)): $($getAllAuth.body | ConvertTo-Json -Depth 10)"
         $failures += @{
             test = "GetAll with token should succeed";
             expected = "200 OK";
@@ -1694,6 +1761,403 @@ if ($swaggerUi.success -and $swaggerUi.status -eq 200) { Write-Host "/swagger-ui
 $openApiSwaggerConfig = Try-InvokeJsonGet -Uri ($BaseUrl + "/v3/api-docs/swagger-config") -Headers @{}
 if ($openApiSwaggerConfig.success -and $openApiSwaggerConfig.status -eq 200) { Write-Host "/v3/api-docs/swagger-config OK" -ForegroundColor Green } else { $failures += Add-Failure -TestName "OpenAPI /v3/api-docs/swagger-config should be 200" -Expected "200" -Actual $openApiSwaggerConfig.status -ResponseBody $openApiSwaggerConfig.body -FailuresArray $failures }
 
+# =====================
+# Recommendation Service tests
+# =====================
+
+if (${doRecommendation}) {
+    $recommendationBaseUrl = "http://localhost:8091"
+    
+    Write-Section "[Recommendation] Health Check"
+    $recHealth = Try-InvokeJsonGet -Uri "$recommendationBaseUrl/health" -Headers @{}
+    if ($recHealth.success -and $recHealth.status -eq 200) {
+        Write-Success "Recommendation health check OK"
+    } else {
+        Write-Error "Recommendation health check failed ($($recHealth.status))"
+        $failures += Add-Failure -TestName "Recommendation Health should be 200" -Expected "200" -Actual $recHealth.status -ResponseBody $recHealth.body -FailuresArray $failures
+    }
+
+    Write-Section "[Recommendation] Readiness Check"
+    $recReadiness = Try-InvokeJsonGet -Uri "$recommendationBaseUrl/readiness" -Headers @{}
+    if ($recReadiness.success -and $recReadiness.status -eq 200) {
+        Write-Success "Recommendation readiness check OK"
+    } else {
+        Write-Error "Recommendation readiness check failed ($($recReadiness.status))"
+        $failures += Add-Failure -TestName "Recommendation Readiness should be 200" -Expected "200" -Actual $recReadiness.status -ResponseBody $recReadiness.body -FailuresArray $failures
+    }
+
+    Write-Section "[Recommendation] Basic Recommendations (authorized)"
+    $recBasicPayload = @{ userId = 1; limit = 5 }
+    $recBasic = Try-InvokeJsonPost -Uri "$recommendationBaseUrl/recommendations" -Headers $authHeaders -Body $recBasicPayload
+    if ($recBasic.success -and $recBasic.status -eq 200) {
+        $itemCount = 0
+        try { $itemCount = ($recBasic.body.items | Measure-Object).Count } catch {}
+        Write-Success "Basic recommendations fetched: $itemCount items"
+    } else {
+        Write-Error "Basic recommendations failed ($($recBasic.status))"
+        $failures += Add-Failure -TestName "Recommendation Basic should be 200" -Expected "200" -Actual $recBasic.status -ResponseBody $recBasic.body -FailuresArray $failures
+    }
+
+    Write-Section "[Recommendation] Recommendations with Custom Limit"
+    $recWithLimitPayload = @{ userId = 1; limit = 10 }
+    $recWithLimit = Try-InvokeJsonPost -Uri "$recommendationBaseUrl/recommendations" -Headers $authHeaders -Body $recWithLimitPayload
+    if ($recWithLimit.success -and $recWithLimit.status -eq 200) {
+        $itemCount = 0
+        try { $itemCount = ($recWithLimit.body.items | Measure-Object).Count } catch {}
+        Write-Host "Recommendations with limit fetched: $itemCount items" -ForegroundColor Green
+    } else {
+        Write-Host "Recommendations with limit failed ($($recWithLimit.status))" -ForegroundColor Red
+        $failures += Add-Failure -TestName "Recommendation With Limit should be 200" -Expected "200" -Actual $recWithLimit.status -ResponseBody $recWithLimit.body -FailuresArray $failures
+    }
+
+    Write-Section "[Recommendation] Recommendations with Category Filter"
+    $recWithCategoryPayload = @{ userId = 1; limit = 5; categoryId = $ProductCategoryId }
+    $recWithCategory = Try-InvokeJsonPost -Uri "$recommendationBaseUrl/recommendations" -Headers $authHeaders -Body $recWithCategoryPayload
+    if ($recWithCategory.success -and $recWithCategory.status -eq 200) {
+        $itemCount = 0
+        try { $itemCount = ($recWithCategory.body.items | Measure-Object).Count } catch {}
+        Write-Host "Recommendations with category filter fetched: $itemCount items" -ForegroundColor Green
+    } else {
+        Write-Host "Recommendations with category filter failed ($($recWithCategory.status))" -ForegroundColor Red
+        $failures += Add-Failure -TestName "Recommendation With Category should be 200" -Expected "200" -Actual $recWithCategory.status -ResponseBody $recWithCategory.body -FailuresArray $failures
+    }
+
+    Write-Section "[Recommendation] Recommendations with Active Only Filter"
+    $recWithActiveOnlyPayload = @{ userId = 1; limit = 5; activeOnly = $true }
+    $recWithActiveOnly = Try-InvokeJsonPost -Uri "$recommendationBaseUrl/recommendations" -Headers $authHeaders -Body $recWithActiveOnlyPayload
+    if ($recWithActiveOnly.success -and $recWithActiveOnly.status -eq 200) {
+        $itemCount = 0
+        try { $itemCount = ($recWithActiveOnly.body.items | Measure-Object).Count } catch {}
+        Write-Host "Recommendations with active only filter fetched: $itemCount items" -ForegroundColor Green
+    } else {
+        Write-Host "Recommendations with active only filter failed ($($recWithActiveOnly.status))" -ForegroundColor Red
+        $failures += Add-Failure -TestName "Recommendation With Active Only should be 200" -Expected "200" -Actual $recWithActiveOnly.status -ResponseBody $recWithActiveOnly.body -FailuresArray $failures
+    }
+
+    Write-Section "[Recommendation] Recommendations with Seed (Deterministic)"
+    $recWithSeedPayload = @{ userId = 1; limit = 5; seed = 12345 }
+    $recWithSeed = Try-InvokeJsonPost -Uri "$recommendationBaseUrl/recommendations" -Headers $authHeaders -Body $recWithSeedPayload
+    if ($recWithSeed.success -and $recWithSeed.status -eq 200) {
+        $itemCount = 0
+        try { $itemCount = ($recWithSeed.body.items | Measure-Object).Count } catch {}
+        Write-Host "Recommendations with seed fetched: $itemCount items" -ForegroundColor Green
+    } else {
+        Write-Host "Recommendations with seed failed ($($recWithSeed.status))" -ForegroundColor Red
+        $failures += Add-Failure -TestName "Recommendation With Seed should be 200" -Expected "200" -Actual $recWithSeed.status -ResponseBody $recWithSeed.body -FailuresArray $failures
+    }
+
+    Write-Section "[Recommendation] Invalid User ID (should be 422)"
+    $recInvalidUserIdPayload = @{ userId = -1; limit = 5 }
+    $recInvalidUserId = Try-InvokeJsonPost -Uri "$recommendationBaseUrl/recommendations" -Headers $authHeaders -Body $recInvalidUserIdPayload
+    if (-not $recInvalidUserId.success -and $recInvalidUserId.status -eq 422) {
+        Write-Host "Invalid user ID correctly rejected (422)" -ForegroundColor Green
+    } else {
+        Write-Host "Unexpected invalid user ID result: success=$($recInvalidUserId.success) status=$($recInvalidUserId.status)" -ForegroundColor Yellow
+        $failures += Add-Failure -TestName "Recommendation Invalid User ID should be 422" -Expected "422" -Actual $recInvalidUserId.status -ResponseBody $recInvalidUserId.body -FailuresArray $failures
+    }
+
+    Write-Section "[Recommendation] Invalid Limit (should be 422)"
+    $recInvalidLimitPayload = @{ userId = 1; limit = 0 }
+    $recInvalidLimit = Try-InvokeJsonPost -Uri "$recommendationBaseUrl/recommendations" -Headers $authHeaders -Body $recInvalidLimitPayload
+    if (-not $recInvalidLimit.success -and $recInvalidLimit.status -eq 422) {
+        Write-Host "Invalid limit correctly rejected (422)" -ForegroundColor Green
+    } else {
+        Write-Host "Unexpected invalid limit result: success=$($recInvalidLimit.success) status=$($recInvalidLimit.status)" -ForegroundColor Yellow
+        $failures += Add-Failure -TestName "Recommendation Invalid Limit should be 422" -Expected "422" -Actual $recInvalidLimit.status -ResponseBody $recInvalidLimit.body -FailuresArray $failures
+    }
+
+    Write-Section "[Recommendation] Invalid Category ID (should be 422)"
+    $recInvalidCategoryPayload = @{ userId = 1; limit = 5; categoryId = -1 }
+    $recInvalidCategory = Try-InvokeJsonPost -Uri "$recommendationBaseUrl/recommendations" -Headers $authHeaders -Body $recInvalidCategoryPayload
+    if (-not $recInvalidCategory.success -and $recInvalidCategory.status -eq 422) {
+        Write-Host "Invalid category ID correctly rejected (422)" -ForegroundColor Green
+    } else {
+        Write-Host "Unexpected invalid category ID result: success=$($recInvalidCategory.success) status=$($recInvalidCategory.status)" -ForegroundColor Yellow
+        $failures += Add-Failure -TestName "Recommendation Invalid Category ID should be 422" -Expected "422" -Actual $recInvalidCategory.status -ResponseBody $recInvalidCategory.body -FailuresArray $failures
+    }
+
+    Write-Section "[Recommendation] Recommendations without Token (should be 401/403)"
+    $recNoAuthPayload = @{ userId = 1; limit = 5 }
+    $recNoAuth = Try-InvokeJsonPost -Uri "$recommendationBaseUrl/recommendations" -Headers @{} -Body $recNoAuthPayload
+    if (-not $recNoAuth.success -and ($recNoAuth.status -eq 401 -or $recNoAuth.status -eq 403)) {
+        Write-Host "Unauthorized recommendation access blocked ($($recNoAuth.status))" -ForegroundColor Green
+    } else {
+        Write-Host "Unexpected unauth recommendation result: success=$($recNoAuth.success) status=$($recNoAuth.status)" -ForegroundColor Yellow
+        $failures += Add-Failure -TestName "Recommendation No Token should be 401/403" -Expected "401/403" -Actual $recNoAuth.status -ResponseBody $recNoAuth.body -FailuresArray $failures
+    }
+
+    # Analytics Integration Tests
+    Write-Section "[Recommendation] Analytics Status Check"
+    $recAnalyticsStatus = Try-InvokeJsonGet -Uri "$recommendationBaseUrl/analytics/status" -Headers $authHeaders
+    if ($recAnalyticsStatus.success -and $recAnalyticsStatus.status -eq 200) {
+        Write-Host "Analytics status check OK" -ForegroundColor Green
+    } else {
+        Write-Host "Analytics status check failed ($($recAnalyticsStatus.status))" -ForegroundColor Red
+        $failures += Add-Failure -TestName "Recommendation Analytics Status should be 200" -Expected "200" -Actual $recAnalyticsStatus.status -ResponseBody $recAnalyticsStatus.body -FailuresArray $failures
+    }
+
+    Write-Section "[Recommendation] Bestseller Recommendations"
+    $recBestsellerPayload = @{ userId = 1; limit = 5; useAnalytics = $true; recommendationType = "bestsellers" }
+    $recBestseller = Try-InvokeJsonPost -Uri "$recommendationBaseUrl/recommendations" -Headers $authHeaders -Body $recBestsellerPayload
+    if ($recBestseller.success -and $recBestseller.status -eq 200) {
+        $itemCount = 0
+        try { $itemCount = ($recBestseller.body.items | Measure-Object).Count } catch {}
+        Write-Host "Bestseller recommendations fetched: $itemCount items" -ForegroundColor Green
+    } else {
+        Write-Host "Bestseller recommendations failed ($($recBestseller.status))" -ForegroundColor Red
+        $failures += Add-Failure -TestName "Recommendation Bestsellers should be 200" -Expected "200" -Actual $recBestseller.status -ResponseBody $recBestseller.body -FailuresArray $failures
+    }
+
+    Write-Section "[Recommendation] Trending Recommendations"
+    $recTrendingPayload = @{ userId = 1; limit = 5; useAnalytics = $true; recommendationType = "trending" }
+    $recTrending = Try-InvokeJsonPost -Uri "$recommendationBaseUrl/recommendations" -Headers $authHeaders -Body $recTrendingPayload
+    if ($recTrending.success -and $recTrending.status -eq 200) {
+        $itemCount = 0
+        try { $itemCount = ($recTrending.body.items | Measure-Object).Count } catch {}
+        Write-Host "Trending recommendations fetched: $itemCount items" -ForegroundColor Green
+    } else {
+        Write-Host "Trending recommendations failed ($($recTrending.status))" -ForegroundColor Red
+        $failures += Add-Failure -TestName "Recommendation Trending should be 200" -Expected "200" -Actual $recTrending.status -ResponseBody $recTrending.body -FailuresArray $failures
+    }
+
+    Write-Section "[Recommendation] Hybrid Recommendations"
+    $recHybridPayload = @{ userId = 1; limit = 8; useAnalytics = $true; recommendationType = "hybrid" }
+    $recHybrid = Try-InvokeJsonPost -Uri "$recommendationBaseUrl/recommendations" -Headers $authHeaders -Body $recHybridPayload
+    if ($recHybrid.success -and $recHybrid.status -eq 200) {
+        $itemCount = 0
+        try { $itemCount = ($recHybrid.body.items | Measure-Object).Count } catch {}
+        Write-Success "Hybrid recommendations fetched: $itemCount items"
+    } else {
+        Write-Error "Hybrid recommendations failed ($($recHybrid.status))"
+        $failures += Add-Failure -TestName "Recommendation Hybrid should be 200" -Expected "200" -Actual $recHybrid.status -ResponseBody $recHybrid.body -FailuresArray $failures
+    }
+
+    # Additional Recommendation Test Cases
+    Write-Section "[Recommendation] Analytics Dashboard Summary"
+    $recDashboardPayload = @{ userId = 1; limit = 5; useAnalytics = $true; recommendationType = "hybrid" }
+    $recDashboard = Try-InvokeJsonPost -Uri "$recommendationBaseUrl/recommendations" -Headers $authHeaders -Body $recDashboardPayload
+    if ($recDashboard.success -and $recDashboard.status -eq 200) {
+        Write-Success "Dashboard recommendations fetched successfully"
+    } else {
+        Write-Error "Dashboard recommendations failed ($($recDashboard.status))"
+        $failures += Add-Failure -TestName "Recommendation Dashboard should be 200" -Expected "200" -Actual $recDashboard.status -ResponseBody $recDashboard.body -FailuresArray $failures
+    }
+
+    Write-Section "[Recommendation] Large Limit Test"
+    $recLargeLimitPayload = @{ userId = 1; limit = 50; useAnalytics = $true; recommendationType = "hybrid" }
+    $recLargeLimit = Try-InvokeJsonPost -Uri "$recommendationBaseUrl/recommendations" -Headers $authHeaders -Body $recLargeLimitPayload
+    if ($recLargeLimit.success -and $recLargeLimit.status -eq 200) {
+        $itemCount = 0
+        try { $itemCount = ($recLargeLimit.body.items | Measure-Object).Count } catch {}
+        Write-Success "Large limit recommendations fetched: $itemCount items"
+    } else {
+        Write-Error "Large limit recommendations failed ($($recLargeLimit.status))"
+        $failures += Add-Failure -TestName "Recommendation Large Limit should be 200" -Expected "200" -Actual $recLargeLimit.status -ResponseBody $recLargeLimit.body -FailuresArray $failures
+    }
+
+    # Additional Recommendation Test Cases
+    Write-Section "[Recommendation] Performance Test (Multiple Requests)"
+    $recPerfPayload = @{ userId = 1; limit = 3; useAnalytics = $true; recommendationType = "hybrid" }
+    $recPerf1 = Try-InvokeJsonPost -Uri "$recommendationBaseUrl/recommendations" -Headers $authHeaders -Body $recPerfPayload
+    $recPerf2 = Try-InvokeJsonPost -Uri "$recommendationBaseUrl/recommendations" -Headers $authHeaders -Body $recPerfPayload
+    if ($recPerf1.success -and $recPerf1.status -eq 200 -and $recPerf2.success -and $recPerf2.status -eq 200) {
+        Write-Success "Performance test passed - multiple requests handled correctly"
+    } else {
+        Write-Error "Performance test failed - requests: $($recPerf1.status), $($recPerf2.status)"
+        $failures += Add-Failure -TestName "Recommendation Performance should be 200" -Expected "200" -Actual "$($recPerf1.status), $($recPerf2.status)" -ResponseBody $recPerf1.body -FailuresArray $failures
+    }
+
+    Write-Section "[Recommendation] Edge Case - Zero Limit"
+    $recZeroLimitPayload = @{ userId = 1; limit = 0; useAnalytics = $false; recommendationType = "basic" }
+    $recZeroLimit = Try-InvokeJsonPost -Uri "$recommendationBaseUrl/recommendations" -Headers $authHeaders -Body $recZeroLimitPayload
+    if (-not $recZeroLimit.success -and $recZeroLimit.status -eq 422) {
+        Write-Success "Zero limit correctly rejected (422)"
+    } else {
+        Write-Warning "Unexpected zero limit result: success=$($recZeroLimit.success) status=$($recZeroLimit.status)"
+        $failures += Add-Failure -TestName "Recommendation Zero Limit should be 422" -Expected "422" -Actual $recZeroLimit.status -ResponseBody $recZeroLimit.body -FailuresArray $failures
+    }
+}
+
+# Analytics Service Tests
+if (${doRecommendation}) {
+    $analyticsBaseUrl = "http://localhost:8093"
+    
+    Write-Section "[Analytics] Health Check"
+    $analyticsHealth = Try-InvokeJsonGet -Uri "$analyticsBaseUrl/health" -Headers @{}
+    if ($analyticsHealth.success -and $analyticsHealth.status -eq 200) {
+        Write-Success "Analytics health check OK"
+    } else {
+        Write-Error "Analytics health check failed ($($analyticsHealth.status))"
+        $failures += Add-Failure -TestName "Analytics Health should be 200" -Expected "200" -Actual $analyticsHealth.status -ResponseBody $analyticsHealth.body -FailuresArray $failures
+    }
+
+    Write-Section "[Analytics] Readiness Check"
+    $analyticsReadiness = Try-InvokeJsonGet -Uri "$analyticsBaseUrl/readiness" -Headers @{}
+    if ($analyticsReadiness.success -and $analyticsReadiness.status -eq 200) {
+        Write-Success "Analytics readiness check OK"
+    } else {
+        Write-Error "Analytics readiness check failed ($($analyticsReadiness.status))"
+        $failures += Add-Failure -TestName "Analytics Readiness should be 200" -Expected "200" -Actual $analyticsReadiness.status -ResponseBody $analyticsReadiness.body -FailuresArray $failures
+    }
+
+    Write-Section "[Analytics] Bestsellers"
+    $analyticsBestsellers = Try-InvokeJsonGet -Uri "$analyticsBaseUrl/analytics/products/bestsellers?limit=5" -Headers $authHeaders
+    if ($analyticsBestsellers.success -and $analyticsBestsellers.status -eq 200) {
+        $bestsellerCount = 0
+        try { $bestsellerCount = ($analyticsBestsellers.body.bestsellers | Measure-Object).Count } catch {}
+        Write-Success "Bestsellers fetched: $bestsellerCount items"
+    } else {
+        Write-Error "Bestsellers failed ($($analyticsBestsellers.status))"
+        $failures += Add-Failure -TestName "Analytics Bestsellers should be 200" -Expected "200" -Actual $analyticsBestsellers.status -ResponseBody $analyticsBestsellers.body -FailuresArray $failures
+    }
+
+    Write-Section "[Analytics] Trending Products"
+    $analyticsTrending = Try-InvokeJsonGet -Uri "$analyticsBaseUrl/analytics/products/trending?limit=5" -Headers $authHeaders
+    if ($analyticsTrending.success -and $analyticsTrending.status -eq 200) {
+        $trendingCount = 0
+        try { $trendingCount = ($analyticsTrending.body.trending | Measure-Object).Count } catch {}
+        Write-Success "Trending products fetched: $trendingCount items"
+    } else {
+        Write-Error "Trending products failed ($($analyticsTrending.status))"
+        $failures += Add-Failure -TestName "Analytics Trending should be 200" -Expected "200" -Actual $analyticsTrending.status -ResponseBody $analyticsTrending.body -FailuresArray $failures
+    }
+
+    Write-Section "[Analytics] Popular Categories"
+    $analyticsCategories = Try-InvokeJsonGet -Uri "$analyticsBaseUrl/analytics/categories/popular?limit=5" -Headers $authHeaders
+    if ($analyticsCategories.success -and $analyticsCategories.status -eq 200) {
+        $categoryCount = 0
+        try { $categoryCount = ($analyticsCategories.body.popular | Measure-Object).Count } catch {}
+        Write-Success "Popular categories fetched: $categoryCount items"
+    } else {
+        Write-Error "Popular categories failed ($($analyticsCategories.status))"
+        $failures += Add-Failure -TestName "Analytics Categories should be 200" -Expected "200" -Actual $analyticsCategories.status -ResponseBody $analyticsCategories.body -FailuresArray $failures
+    }
+
+    Write-Section "[Analytics] Dashboard Summary"
+    $analyticsDashboard = Try-InvokeJsonGet -Uri "$analyticsBaseUrl/analytics/dashboard/summary" -Headers $authHeaders
+    if ($analyticsDashboard.success -and $analyticsDashboard.status -eq 200) {
+        Write-Success "Dashboard summary fetched successfully"
+    } else {
+        Write-Error "Dashboard summary failed ($($analyticsDashboard.status))"
+        $failures += Add-Failure -TestName "Analytics Dashboard should be 200" -Expected "200" -Actual $analyticsDashboard.status -ResponseBody $analyticsDashboard.body -FailuresArray $failures
+    }
+
+    # Additional Analytics Test Cases
+    Write-Section "[Analytics] Time Range Test"
+    $analyticsTimeRange = Try-InvokeJsonGet -Uri "$analyticsBaseUrl/analytics/products/bestsellers?timeRange=weekly&limit=3" -Headers $authHeaders
+    if ($analyticsTimeRange.success -and $analyticsTimeRange.status -eq 200) {
+        $timeRangeCount = 0
+        try { $timeRangeCount = ($analyticsTimeRange.body.bestsellers | Measure-Object).Count } catch {}
+        Write-Success "Time range test passed - weekly bestsellers: $timeRangeCount items"
+    } else {
+        Write-Error "Time range test failed ($($analyticsTimeRange.status))"
+        $failures += Add-Failure -TestName "Analytics Time Range should be 200" -Expected "200" -Actual $analyticsTimeRange.status -ResponseBody $analyticsTimeRange.body -FailuresArray $failures
+    }
+
+    Write-Section "[Analytics] Category Filter Test"
+    $analyticsCategoryFilter = Try-InvokeJsonGet -Uri "$analyticsBaseUrl/analytics/products/trending?categoryId=1&limit=3" -Headers $authHeaders
+    if ($analyticsCategoryFilter.success -and $analyticsCategoryFilter.status -eq 200) {
+        $categoryFilterCount = 0
+        try { $categoryFilterCount = ($analyticsCategoryFilter.body.trending | Measure-Object).Count } catch {}
+        Write-Success "Category filter test passed - trending in category 1: $categoryFilterCount items"
+    } else {
+        Write-Error "Category filter test failed ($($analyticsCategoryFilter.status))"
+        $failures += Add-Failure -TestName "Analytics Category Filter should be 200" -Expected "200" -Actual $analyticsCategoryFilter.status -ResponseBody $analyticsCategoryFilter.body -FailuresArray $failures
+    }
+}
+
+# Search Service Tests
+if (${doRecommendation}) {
+    $searchBaseUrl = "http://localhost:8092"
+    
+    Write-Section "[Search] Health Check"
+    $searchHealth = Try-InvokeJsonGet -Uri "$searchBaseUrl/health" -Headers @{}
+    if ($searchHealth.success -and $searchHealth.status -eq 200) {
+        Write-Success "Search health check OK"
+    } else {
+        Write-Error "Search health check failed ($($searchHealth.status))"
+        $failures += Add-Failure -TestName "Search Health should be 200" -Expected "200" -Actual $searchHealth.status -ResponseBody $searchHealth.body -FailuresArray $failures
+    }
+
+    Write-Section "[Search] Reindex Products"
+    $searchReindex = Try-InvokeJsonPost -Uri "$searchBaseUrl/reindex" -Headers $authHeaders -Body @{}
+    if ($searchReindex.success -and $searchReindex.status -eq 200) {
+        $indexedCount = 0
+        try { $indexedCount = $searchReindex.body.indexed } catch {}
+        Write-Success "Products reindexed: $indexedCount items"
+    } else {
+        Write-Error "Reindex failed ($($searchReindex.status))"
+        $failures += Add-Failure -TestName "Search Reindex should be 200" -Expected "200" -Actual $searchReindex.status -ResponseBody $searchReindex.body -FailuresArray $failures
+    }
+
+    Write-Section "[Search] Basic Search"
+    $searchBasic = Try-InvokeJsonGet -Uri "$searchBaseUrl/search?q=product&limit=5" -Headers @{}
+    if ($searchBasic.success -and $searchBasic.status -eq 200) {
+        $searchCount = 0
+        try { $searchCount = ($searchBasic.body.items | Measure-Object).Count } catch {}
+        Write-Success "Basic search returned: $searchCount items"
+    } else {
+        Write-Error "Basic search failed ($($searchBasic.status))"
+        $failures += Add-Failure -TestName "Search Basic should be 200" -Expected "200" -Actual $searchBasic.status -ResponseBody $searchBasic.body -FailuresArray $failures
+    }
+
+    Write-Section "[Search] Price Range Search"
+    $searchPrice = Try-InvokeJsonGet -Uri "$searchBaseUrl/search?min_price=10&max_price=100&limit=5" -Headers @{}
+    if ($searchPrice.success -and $searchPrice.status -eq 200) {
+        $priceCount = 0
+        try { $priceCount = ($searchPrice.body.items | Measure-Object).Count } catch {}
+        Write-Success "Price range search returned: $priceCount items"
+    } else {
+        Write-Error "Price range search failed ($($searchPrice.status))"
+        $failures += Add-Failure -TestName "Search Price Range should be 200" -Expected "200" -Actual $searchPrice.status -ResponseBody $searchPrice.body -FailuresArray $failures
+    }
+
+    Write-Section "[Search] Category Filter Search"
+    $searchCategory = Try-InvokeJsonGet -Uri "$searchBaseUrl/search?category_id=1&limit=5" -Headers @{}
+    if ($searchCategory.success -and $searchCategory.status -eq 200) {
+        $categoryCount = 0
+        try { $categoryCount = ($searchCategory.body.items | Measure-Object).Count } catch {}
+        Write-Success "Category filter search returned: $categoryCount items"
+    } else {
+        Write-Error "Category filter search failed ($($searchCategory.status))"
+        $failures += Add-Failure -TestName "Search Category Filter should be 200" -Expected "200" -Actual $searchCategory.status -ResponseBody $searchCategory.body -FailuresArray $failures
+    }
+
+    Write-Section "[Search] Sort by Price"
+    $searchSort = Try-InvokeJsonGet -Uri "$searchBaseUrl/search?sort_by=price_asc&limit=5" -Headers @{}
+    if ($searchSort.success -and $searchSort.status -eq 200) {
+        $sortCount = 0
+        try { $sortCount = ($searchSort.body.items | Measure-Object).Count } catch {}
+        Write-Success "Sort by price returned: $sortCount items"
+    } else {
+        Write-Error "Sort by price failed ($($searchSort.status))"
+        $failures += Add-Failure -TestName "Search Sort by Price should be 200" -Expected "200" -Actual $searchSort.status -ResponseBody $searchSort.body -FailuresArray $failures
+    }
+
+    # Additional Search Test Cases
+    Write-Section "[Search] Complex Search Query"
+    $searchComplex = Try-InvokeJsonGet -Uri "$searchBaseUrl/search?q=laptop computer&min_price=100&max_price=2000&sort_by=price_desc&limit=3" -Headers @{}
+    if ($searchComplex.success -and $searchComplex.status -eq 200) {
+        $complexCount = 0
+        try { $complexCount = ($searchComplex.body.items | Measure-Object).Count } catch {}
+        Write-Success "Complex search query returned: $complexCount items"
+    } else {
+        Write-Error "Complex search query failed ($($searchComplex.status))"
+        $failures += Add-Failure -TestName "Search Complex Query should be 200" -Expected "200" -Actual $searchComplex.status -ResponseBody $searchComplex.body -FailuresArray $failures
+    }
+
+    Write-Section "[Search] Empty Search Test"
+    $searchEmpty = Try-InvokeJsonGet -Uri "$searchBaseUrl/search?q=&limit=5" -Headers @{}
+    if ($searchEmpty.success -and $searchEmpty.status -eq 200) {
+        $emptyCount = 0
+        try { $emptyCount = ($searchEmpty.body.items | Measure-Object).Count } catch {}
+        Write-Success "Empty search query returned: $emptyCount items"
+    } else {
+        Write-Error "Empty search query failed ($($searchEmpty.status))"
+        $failures += Add-Failure -TestName "Search Empty Query should be 200" -Expected "200" -Actual $searchEmpty.status -ResponseBody $searchEmpty.body -FailuresArray $failures
+    }
+}
+
 if (${doOrder}) {
     Write-Section "[Order] Page (authorized - Admin only)"
     if ($oTargetId -eq $null) {
@@ -2116,7 +2580,14 @@ foreach ($v in @(
     $oPageMax,$oPageNegPage,$oPageMissingDir,$oGetByIdNotFound,$oGetByNumberNotFound,
     $pPageMax,$pPageNegPage,$pPageMissingDir,
     $cPageMax,$cPageNegPage,$cPageMissingDir,
-    $openApiDocs,$swaggerUi,$openApiSwaggerConfig
+    $openApiDocs,$swaggerUi,$openApiSwaggerConfig,
+    $recHealth,$recReadiness,$recBasic,$recWithLimit,$recWithCategory,$recWithActiveOnly,$recWithSeed,
+    $recInvalidUserId,$recInvalidLimit,$recInvalidCategory,$recNoAuth,$recAnalyticsStatus,$recBestseller,$recTrending,$recHybrid,
+    $recDashboard,$recLargeLimit,$recPerf1,$recPerf2,$recZeroLimit,
+    $analyticsHealth,$analyticsReadiness,$analyticsBestsellers,$analyticsTrending,$analyticsCategories,$analyticsDashboard,
+    $analyticsTimeRange,$analyticsCategoryFilter,
+    $searchHealth,$searchReindex,$searchBasic,$searchPrice,$searchCategory,$searchSort,
+    $searchComplex,$searchEmpty
 )) {
     if ($null -ne $v) { $executed += 1 }
 }
@@ -2229,6 +2700,53 @@ $summary += (ConvertTo-Json @{
     byStatus = if ($oGetByStatus) { $oGetByStatus.status } else { $null }
     pageMax = if ($oPageMax) { $oPageMax.status } else { $null }
 } -Depth 4)
+$summary += ""
+$summary += "## Recommendation"
+$summary += (ConvertTo-Json @{
+    health = if ($recHealth) { $recHealth.status } else { $null }
+    readiness = if ($recReadiness) { $recReadiness.status } else { $null }
+    basic = if ($recBasic) { $recBasic.status } else { $null }
+    withLimit = if ($recWithLimit) { $recWithLimit.status } else { $null }
+    withCategory = if ($recWithCategory) { $recWithCategory.status } else { $null }
+    withActiveOnly = if ($recWithActiveOnly) { $recWithActiveOnly.status } else { $null }
+    withSeed = if ($recWithSeed) { $recWithSeed.status } else { $null }
+    invalidUserId = if ($recInvalidUserId) { $recInvalidUserId.status } else { $null }
+    invalidLimit = if ($recInvalidLimit) { $recInvalidLimit.status } else { $null }
+    invalidCategory = if ($recInvalidCategory) { $recInvalidCategory.status } else { $null }
+    noAuth = if ($recNoAuth) { $recNoAuth.status } else { $null }
+    analyticsStatus = if ($recAnalyticsStatus) { $recAnalyticsStatus.status } else { $null }
+    bestseller = if ($recBestseller) { $recBestseller.status } else { $null }
+    trending = if ($recTrending) { $recTrending.status } else { $null }
+    hybrid = if ($recHybrid) { $recHybrid.status } else { $null }
+    dashboard = if ($recDashboard) { $recDashboard.status } else { $null }
+    largeLimit = if ($recLargeLimit) { $recLargeLimit.status } else { $null }
+    performance = if ($recPerf1 -and $recPerf2) { "200,200" } else { $null }
+    zeroLimit = if ($recZeroLimit) { $recZeroLimit.status } else { $null }
+} -Depth 4)
+
+$summary += "## Analytics"
+$summary += (ConvertTo-Json @{
+    health = if ($analyticsHealth) { $analyticsHealth.status } else { $null }
+    readiness = if ($analyticsReadiness) { $analyticsReadiness.status } else { $null }
+    bestsellers = if ($analyticsBestsellers) { $analyticsBestsellers.status } else { $null }
+    trending = if ($analyticsTrending) { $analyticsTrending.status } else { $null }
+    categories = if ($analyticsCategories) { $analyticsCategories.status } else { $null }
+    dashboard = if ($analyticsDashboard) { $analyticsDashboard.status } else { $null }
+    timeRange = if ($analyticsTimeRange) { $analyticsTimeRange.status } else { $null }
+    categoryFilter = if ($analyticsCategoryFilter) { $analyticsCategoryFilter.status } else { $null }
+} -Depth 4)
+
+$summary += "## Search"
+$summary += (ConvertTo-Json @{
+    health = if ($searchHealth) { $searchHealth.status } else { $null }
+    reindex = if ($searchReindex) { $searchReindex.status } else { $null }
+    basic = if ($searchBasic) { $searchBasic.status } else { $null }
+    priceRange = if ($searchPrice) { $searchPrice.status } else { $null }
+    categoryFilter = if ($searchCategory) { $searchCategory.status } else { $null }
+    sortByPrice = if ($searchSort) { $searchSort.status } else { $null }
+    complexQuery = if ($searchComplex) { $searchComplex.status } else { $null }
+    emptyQuery = if ($searchEmpty) { $searchEmpty.status } else { $null }
+} -Depth 4)
 
 # Expected vs Actual section
 $summary += ""
@@ -2305,9 +2823,50 @@ $summary += "- Get with Changes: expected 200, actual: " + $(if ($oGetWithChange
 $summary += "- Get Needing Attention: expected 200, actual: " + $(if ($oGetNeedingAttention) { $oGetNeedingAttention.status } else { $null })
 $summary += "- Get Recent: expected 200, actual: " + $(if ($oGetRecent) { $oGetRecent.status } else { $null })
 $summary += "- Get Statistics: expected 200, actual: " + $(if ($oGetStatistics) { $oGetStatistics.status } else { $null })
+$summary += ""
+$summary += "### Recommendation"
+$summary += "- Health: expected 200, actual: " + $(if ($recHealth) { $recHealth.status } else { $null })
+$summary += "- Readiness: expected 200, actual: " + $(if ($recReadiness) { $recReadiness.status } else { $null })
+$summary += "- Basic: expected 200, actual: " + $(if ($recBasic) { $recBasic.status } else { $null })
+$summary += "- With Limit: expected 200, actual: " + $(if ($recWithLimit) { $recWithLimit.status } else { $null })
+$summary += "- With Category: expected 200, actual: " + $(if ($recWithCategory) { $recWithCategory.status } else { $null })
+$summary += "- With Active Only: expected 200, actual: " + $(if ($recWithActiveOnly) { $recWithActiveOnly.status } else { $null })
+$summary += "- With Seed: expected 200, actual: " + $(if ($recWithSeed) { $recWithSeed.status } else { $null })
+$summary += "- Invalid User ID: expected 422, actual: " + $(if ($recInvalidUserId) { $recInvalidUserId.status } else { $null })
+$summary += "- Invalid Limit: expected 422, actual: " + $(if ($recInvalidLimit) { $recInvalidLimit.status } else { $null })
+$summary += "- Invalid Category: expected 422, actual: " + $(if ($recInvalidCategory) { $recInvalidCategory.status } else { $null })
+$summary += "- No Token: expected 401/403, actual: " + $(if ($recNoAuth) { $recNoAuth.status } else { $null })
+$summary += "- Analytics Status: expected 200, actual: " + $(if ($recAnalyticsStatus) { $recAnalyticsStatus.status } else { $null })
+$summary += "- Bestseller Recommendations: expected 200, actual: " + $(if ($recBestseller) { $recBestseller.status } else { $null })
+$summary += "- Trending Recommendations: expected 200, actual: " + $(if ($recTrending) { $recTrending.status } else { $null })
+$summary += "- Hybrid Recommendations: expected 200, actual: " + $(if ($recHybrid) { $recHybrid.status } else { $null })
+$summary += "- Dashboard Recommendations: expected 200, actual: " + $(if ($recDashboard) { $recDashboard.status } else { $null })
+$summary += "- Large Limit Recommendations: expected 200, actual: " + $(if ($recLargeLimit) { $recLargeLimit.status } else { $null })
+$summary += "- Performance Test: expected 200,200, actual: " + $(if ($recPerf1 -and $recPerf2) { "$($recPerf1.status),$($recPerf2.status)" } else { $null })
+$summary += "- Zero Limit Test: expected 422, actual: " + $(if ($recZeroLimit) { $recZeroLimit.status } else { $null })
+
+$summary += "### Analytics"
+$summary += "- Health: expected 200, actual: " + $(if ($analyticsHealth) { $analyticsHealth.status } else { $null })
+$summary += "- Readiness: expected 200, actual: " + $(if ($analyticsReadiness) { $analyticsReadiness.status } else { $null })
+$summary += "- Bestsellers: expected 200, actual: " + $(if ($analyticsBestsellers) { $analyticsBestsellers.status } else { $null })
+$summary += "- Trending: expected 200, actual: " + $(if ($analyticsTrending) { $analyticsTrending.status } else { $null })
+$summary += "- Categories: expected 200, actual: " + $(if ($analyticsCategories) { $analyticsCategories.status } else { $null })
+$summary += "- Dashboard: expected 200, actual: " + $(if ($analyticsDashboard) { $analyticsDashboard.status } else { $null })
+$summary += "- Time Range: expected 200, actual: " + $(if ($analyticsTimeRange) { $analyticsTimeRange.status } else { $null })
+$summary += "- Category Filter: expected 200, actual: " + $(if ($analyticsCategoryFilter) { $analyticsCategoryFilter.status } else { $null })
+
+$summary += "### Search"
+$summary += "- Health: expected 200, actual: " + $(if ($searchHealth) { $searchHealth.status } else { $null })
+$summary += "- Reindex: expected 200, actual: " + $(if ($searchReindex) { $searchReindex.status } else { $null })
+$summary += "- Basic Search: expected 200, actual: " + $(if ($searchBasic) { $searchBasic.status } else { $null })
+$summary += "- Price Range: expected 200, actual: " + $(if ($searchPrice) { $searchPrice.status } else { $null })
+$summary += "- Category Filter: expected 200, actual: " + $(if ($searchCategory) { $searchCategory.status } else { $null })
+$summary += "- Sort by Price: expected 200, actual: " + $(if ($searchSort) { $searchSort.status } else { $null })
+$summary += "- Complex Query: expected 200, actual: " + $(if ($searchComplex) { $searchComplex.status } else { $null })
+$summary += "- Empty Query: expected 200, actual: " + $(if ($searchEmpty) { $searchEmpty.status } else { $null })
 
 Set-Content -Path $summaryPath -Value $summary -Encoding UTF8
-Write-Host "Summary written to $summaryPath" -ForegroundColor Cyan
+Write-Info "Summary written to $summaryPath"
 
 # Create individual entity reports
 Write-Section "Creating Entity Reports"
@@ -2408,5 +2967,97 @@ $orderTestResults = @{
     "Get Statistics" = @{ Expected = "200"; Actual = if ($oGetStatistics) { $oGetStatistics.status } else { "Not executed" } }
 }
 Write-EntityReport -Entity "Order" -BaseUrl $BaseUrl -Mode $Mode -Timestamp $ts2 -EntityTests $orderTests -EntityFailures $orderFailures -TestResults $orderTestResults
+
+# Recommendation Entity Report
+$recommendationTests = @($recHealth,$recReadiness,$recBasic,$recWithLimit,$recWithCategory,$recWithActiveOnly,$recWithSeed,$recInvalidUserId,$recInvalidLimit,$recInvalidCategory,$recNoAuth,$recAnalyticsStatus,$recBestseller,$recTrending,$recHybrid,$recDashboard,$recLargeLimit,$recPerf1,$recPerf2,$recZeroLimit)
+$recommendationFailures = $failures | Where-Object { $_.test -like "*Recommendation*" }
+$recommendationTestResults = @{
+    "Health Check" = @{ Expected = "200"; Actual = if ($recHealth) { $recHealth.status } else { "Not executed" } }
+    "Readiness Check" = @{ Expected = "200"; Actual = if ($recReadiness) { $recReadiness.status } else { "Not executed" } }
+    "Basic Recommendations" = @{ Expected = "200"; Actual = if ($recBasic) { $recBasic.status } else { "Not executed" } }
+    "With Limit" = @{ Expected = "200"; Actual = if ($recWithLimit) { $recWithLimit.status } else { "Not executed" } }
+    "With Category" = @{ Expected = "200"; Actual = if ($recWithCategory) { $recWithCategory.status } else { "Not executed" } }
+    "With Active Only" = @{ Expected = "200"; Actual = if ($recWithActiveOnly) { $recWithActiveOnly.status } else { "Not executed" } }
+    "With Seed" = @{ Expected = "200"; Actual = if ($recWithSeed) { $recWithSeed.status } else { "Not executed" } }
+    "Invalid User ID" = @{ Expected = "422"; Actual = if ($recInvalidUserId) { $recInvalidUserId.status } else { "Not executed" } }
+    "Invalid Limit" = @{ Expected = "422"; Actual = if ($recInvalidLimit) { $recInvalidLimit.status } else { "Not executed" } }
+    "Invalid Category" = @{ Expected = "422"; Actual = if ($recInvalidCategory) { $recInvalidCategory.status } else { "Not executed" } }
+    "No Token" = @{ Expected = "401/403"; Actual = if ($recNoAuth) { $recNoAuth.status } else { "Not executed" } }
+    "Analytics Status" = @{ Expected = "200"; Actual = if ($recAnalyticsStatus) { $recAnalyticsStatus.status } else { "Not executed" } }
+    "Bestseller Recommendations" = @{ Expected = "200"; Actual = if ($recBestseller) { $recBestseller.status } else { "Not executed" } }
+    "Trending Recommendations" = @{ Expected = "200"; Actual = if ($recTrending) { $recTrending.status } else { "Not executed" } }
+    "Hybrid Recommendations" = @{ Expected = "200"; Actual = if ($recHybrid) { $recHybrid.status } else { "Not executed" } }
+    "Dashboard Recommendations" = @{ Expected = "200"; Actual = if ($recDashboard) { $recDashboard.status } else { "Not executed" } }
+    "Large Limit Recommendations" = @{ Expected = "200"; Actual = if ($recLargeLimit) { $recLargeLimit.status } else { "Not executed" } }
+    "Performance Test" = @{ Expected = "200,200"; Actual = if ($recPerf1 -and $recPerf2) { "$($recPerf1.status),$($recPerf2.status)" } else { "Not executed" } }
+    "Zero Limit Test" = @{ Expected = "422"; Actual = if ($recZeroLimit) { $recZeroLimit.status } else { "Not executed" } }
+}
+Write-EntityReport -Entity "Recommendation" -BaseUrl $BaseUrl -Mode $Mode -Timestamp $ts2 -EntityTests $recommendationTests -EntityFailures $recommendationFailures -TestResults $recommendationTestResults
+
+# Analytics Entity Report
+$analyticsTests = @($analyticsHealth,$analyticsReadiness,$analyticsBestsellers,$analyticsTrending,$analyticsCategories,$analyticsDashboard,$analyticsTimeRange,$analyticsCategoryFilter)
+$analyticsFailures = $failures | Where-Object { $_.test -like "*Analytics*" }
+$analyticsTestResults = @{
+    "Health Check" = @{ Expected = "200"; Actual = if ($analyticsHealth) { $analyticsHealth.status } else { "Not executed" } }
+    "Readiness Check" = @{ Expected = "200"; Actual = if ($analyticsReadiness) { $analyticsReadiness.status } else { "Not executed" } }
+    "Bestsellers" = @{ Expected = "200"; Actual = if ($analyticsBestsellers) { $analyticsBestsellers.status } else { "Not executed" } }
+    "Trending Products" = @{ Expected = "200"; Actual = if ($analyticsTrending) { $analyticsTrending.status } else { "Not executed" } }
+    "Popular Categories" = @{ Expected = "200"; Actual = if ($analyticsCategories) { $analyticsCategories.status } else { "Not executed" } }
+    "Dashboard Summary" = @{ Expected = "200"; Actual = if ($analyticsDashboard) { $analyticsDashboard.status } else { "Not executed" } }
+    "Time Range Test" = @{ Expected = "200"; Actual = if ($analyticsTimeRange) { $analyticsTimeRange.status } else { "Not executed" } }
+    "Category Filter Test" = @{ Expected = "200"; Actual = if ($analyticsCategoryFilter) { $analyticsCategoryFilter.status } else { "Not executed" } }
+}
+Write-EntityReport -Entity "Analytics" -BaseUrl $BaseUrl -Mode $Mode -Timestamp $ts2 -EntityTests $analyticsTests -EntityFailures $analyticsFailures -TestResults $analyticsTestResults
+
+# Search Entity Report
+$searchTests = @($searchHealth,$searchReindex,$searchBasic,$searchPrice,$searchCategory,$searchSort,$searchComplex,$searchEmpty)
+$searchFailures = $failures | Where-Object { $_.test -like "*Search*" }
+$searchTestResults = @{
+    "Health Check" = @{ Expected = "200"; Actual = if ($searchHealth) { $searchHealth.status } else { "Not executed" } }
+    "Reindex Products" = @{ Expected = "200"; Actual = if ($searchReindex) { $searchReindex.status } else { "Not executed" } }
+    "Basic Search" = @{ Expected = "200"; Actual = if ($searchBasic) { $searchBasic.status } else { "Not executed" } }
+    "Price Range Search" = @{ Expected = "200"; Actual = if ($searchPrice) { $searchPrice.status } else { "Not executed" } }
+    "Category Filter Search" = @{ Expected = "200"; Actual = if ($searchCategory) { $searchCategory.status } else { "Not executed" } }
+    "Sort by Price" = @{ Expected = "200"; Actual = if ($searchSort) { $searchSort.status } else { "Not executed" } }
+    "Complex Search Query" = @{ Expected = "200"; Actual = if ($searchComplex) { $searchComplex.status } else { "Not executed" } }
+    "Empty Search Test" = @{ Expected = "200"; Actual = if ($searchEmpty) { $searchEmpty.status } else { "Not executed" } }
+}
+Write-EntityReport -Entity "Search" -BaseUrl $BaseUrl -Mode $Mode -Timestamp $ts2 -EntityTests $searchTests -EntityFailures $searchFailures -TestResults $searchTestResults
+
+# Final Summary with Colors
+Write-Section "🎯 Final Test Summary"
+Write-Host "`n" -NoNewline
+
+if ($failed -eq 0) {
+    Write-Success "🎉 ALL TESTS PASSED! ($total/$total tests passed)"
+    Write-Success "✅ No failures detected"
+} elseif ($failed -le 3) {
+    Write-Warning "⚠️ MOSTLY SUCCESSFUL: $passed/$total tests passed ($failed failures)"
+    Write-Warning "🔧 Minor issues detected - check individual reports"
+} else {
+    Write-Error "❌ MULTIPLE FAILURES: $passed/$total tests passed ($failed failures)"
+    Write-Error "🚨 Significant issues detected - review failed tests"
+}
+
+Write-Host "`n📊 Test Statistics:" -ForegroundColor Cyan
+Write-Host "  📈 Total Tests: $total" -ForegroundColor White
+Write-Host "  ✅ Passed: $passed" -ForegroundColor Green
+Write-Host "  ❌ Failed: $failed" -ForegroundColor Red
+Write-Host "  📊 Success Rate: $([math]::Round(($passed * 100.0) / $total, 1))%" -ForegroundColor $(if ($failed -eq 0) { "Green" } elseif ($failed -le 3) { "Yellow" } else { "Red" })
+
+Write-Host "`n📁 Reports Generated:" -ForegroundColor Cyan
+Write-Host "  📄 Main Summary: $summaryPath" -ForegroundColor White
+Write-Host "  📋 Entity Reports: guide/reports/[Entity]/Test_Report.md" -ForegroundColor White
+
+if ($failed -gt 0) {
+    Write-Host "`n🔍 Failed Tests:" -ForegroundColor Red
+    foreach ($failure in $failures) {
+        Write-Host "  ❌ $($failure.test)" -ForegroundColor Red
+        Write-Host "     Expected: $($failure.expected)" -ForegroundColor Yellow
+        Write-Host "     Actual: $($failure.actual)" -ForegroundColor Yellow
+    }
+}
+
+Write-Host "`n🚀 Test execution completed!" -ForegroundColor Cyan
 
 

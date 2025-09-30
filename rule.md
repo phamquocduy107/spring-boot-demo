@@ -40,4 +40,12 @@ These rules govern how we collaborate. They can be updated or extended at any ti
 - When in doubt, ask for permission before modifying working code
 - This applies to: controllers, services, entities, configurations, scripts, and any other components
 
+8) Evidence-Based Responses
+- **CRITICAL RULE**: All answers and conclusions must be based on concrete evidence
+- Always provide specific examples, code snippets, or test results to support claims
+- When diagnosing issues, show actual error messages, logs, or API responses
+- Avoid vague statements like "it might be" or "probably" without supporting evidence
+- If uncertain, explicitly state what evidence is missing and what would be needed to confirm
+- This applies to: bug reports, feature explanations, troubleshooting, and recommendations
+
 — End of current rules —

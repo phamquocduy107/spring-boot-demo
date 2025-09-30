@@ -1,6 +1,6 @@
 # User Entity Test Report
 
-**Date:** 2025-09-29 21:51:41
+**Date:** 2025-09-30 10:43:02
 **BaseUrl:** http://localhost:8080
 **Mode:** All
 
@@ -12,17 +12,17 @@
 
 ## Test Results
 
-- **Update:** Expected 200, Actual: 200
-- **Get by ID (no token):** Expected 401/403, Actual: 401
-- **Update (no token):** Expected 401/403, Actual: 401
 - **Create User:** Expected 200, Actual: 200
-- **Get All (no token):** Expected 401/403, Actual: 401
-- **Get All:** Expected 200, Actual: 200
 - **Create Duplicate:** Expected 400, Actual: 400
-- **Create (no token):** Expected 401/403, Actual: 401
-- **Delete:** Expected 204, Actual: 204
+- **Get by ID (no token):** Expected 401/403, Actual: 401
 - **Delete (no token):** Expected 401/403, Actual: 401
+- **Update:** Expected 200, Actual: 200
+- **Delete:** Expected 204, Actual: 204
+- **Get All:** Expected 200, Actual: 200
 - **Get by ID:** Expected 200, Actual: 200
+- **Get All (no token):** Expected 401/403, Actual: 401
+- **Create (no token):** Expected 401/403, Actual: 401
+- **Update (no token):** Expected 401/403, Actual: 401
 
 ## Failed Tests
 

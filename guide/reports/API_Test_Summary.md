@@ -1,105 +1,144 @@
 # API Test Summary
 
-Date: 2025-09-29 21:51:41
+Date: 2025-09-30 10:43:02
 Mode: All
 Entity: All
 BaseUrl: http://localhost:8080
-Total: 100
-Passed: 99
+Total: 136
+Passed: 135
 Failed: 1
-Pass Rate: 99%
+Pass Rate: 99.26%
 
 ## User
 {
-  "update": 200,
-  "deleteNoAuth": 401,
-  "create": 200,
   "createNoAuth": 401,
-  "duplicate": 400,
-  "delete": 204,
+  "updateNoAuth": 401,
+  "create": 200,
   "getAll": 200,
-  "getOneNoAuth": 401,
-  "getAllNoAuth": 401,
   "getOne": 200,
-  "updateNoAuth": 401
+  "duplicate": 400,
+  "update": 200,
+  "getAllNoAuth": 401,
+  "getOneNoAuth": 401,
+  "delete": 204,
+  "deleteNoAuth": 401
 }
 
 ## Product
 {
   "getAll": 200,
-  "createNoAuth": 401,
-  "getOne": 200,
-  "getOneNoAuth": 401,
-  "targetId": 100,
-  "update": 200,
-  "page": 200,
-  "create": 200,
-  "active": 200,
-  "delete": null,
+  "targetId": 109,
   "deleteNoAuth": null,
-  "updateNoAuth": 401,
+  "createNoAuth": 401,
+  "page": 200,
+  "update": 200,
+  "delete": null,
+  "getOneNoAuth": 401,
+  "create": 200,
   "duplicate": 400,
-  "getAllNoAuth": 401
+  "getAllNoAuth": 401,
+  "getOne": 200,
+  "active": 200,
+  "updateNoAuth": 401
 }
 
 ## Category
 {
-  "getAll": 200,
-  "createNoAuth": 401,
-  "getOne": 200,
-  "getOneNoAuth": 401,
   "roots": 200,
-  "targetId": 73,
-  "update": 200,
-  "page": 200,
-  "create": 200,
-  "delete": 204,
+  "getAll": 200,
+  "targetId": 84,
   "deleteNoAuth": 401,
-  "updateNoAuth": 401,
+  "createNoAuth": 401,
+  "page": 200,
+  "update": 200,
+  "delete": 204,
+  "getOneNoAuth": 401,
+  "create": 200,
   "duplicate": 400,
-  "getAllNoAuth": 401
+  "getAllNoAuth": 401,
+  "getOne": 200,
+  "updateNoAuth": 401
 }
 
 ## Cart
 {
+  "updateQty": 200,
+  "get": 200,
   "addItem": 200,
-  "getNoAuth": 401,
   "clear": 204,
   "clearNoAuth": 401,
-  "get": 200,
-  "updateQtyNoAuth": 401,
-  "removeItem": 204,
-  "updateQty": 200,
   "addItemNoAuth": 401,
-  "removeItemNoAuth": 401
+  "updateQtyNoAuth": 401,
+  "getNoAuth": 401,
+  "removeItemNoAuth": 401,
+  "removeItem": 204
 }
 
 ## Order
 {
-  "updateShippingFee": 200,
-  "pageMax": 200,
-  "byStatus": 200,
-  "updateNotes": 200,
-  "getMyOrdersNoAuth": 401,
-  "getWithChanges": 200,
-  "page": 200,
-  "getNeedingAttention": 200,
-  "updateTax": 200,
-  "getByNumber": 200,
-  "getById": 200,
-  "getRecent": 200,
-  "getByIdNoAuth": 401,
+  "orderNumber": "ORD-20250930-213",
   "getByNumberNoAuth": 401,
-  "updateStatus": 200,
   "getMyOrders": 200,
-  "createFromCartNoAuth": 401,
-  "getStatistics": 200,
-  "updateDiscount": 200,
-  "createFromCart": 200,
+  "getWithChanges": 200,
+  "updateNotes": 200,
+  "updateShippingFee": 200,
+  "targetId": 43,
   "updateNotesNoAuth": 401,
+  "getRecent": 200,
+  "updateStatus": 200,
   "updateStatusNoAuth": 401,
-  "orderNumber": "ORD-20250929-870",
-  "targetId": 34
+  "getMyOrdersNoAuth": 401,
+  "updateTax": 200,
+  "pageMax": 200,
+  "createFromCart": 200,
+  "byStatus": 200,
+  "updateDiscount": 200,
+  "getNeedingAttention": 200,
+  "getStatistics": 200,
+  "getByIdNoAuth": 401,
+  "getByNumber": 200,
+  "page": 200,
+  "getById": 200,
+  "createFromCartNoAuth": 401
+}
+
+## Recommendation
+{
+  "analyticsStatus": 200,
+  "bestseller": 200,
+  "trending": 200,
+  "invalidLimit": 422,
+  "noAuth": 401,
+  "dashboard": 200,
+  "withLimit": 200,
+  "largeLimit": 200,
+  "withSeed": 200,
+  "withCategory": 200,
+  "readiness": 200,
+  "withActiveOnly": 200,
+  "health": 200,
+  "invalidUserId": 422,
+  "invalidCategory": 422,
+  "hybrid": 200,
+  "basic": 200
+}
+## Analytics
+{
+  "dashboard": 200,
+  "health": 200,
+  "trending": 200,
+  "categories": 200,
+  "readiness": 200,
+  "bestsellers": 200
+}
+## Search
+{
+  "priceRange": 200,
+  "health": 200,
+  "reindex": 200,
+  "basic": 200,
+  "sortByPrice": 200,
+  "categoryFilter": 200
 }
 
 ## Expected vs Actual
@@ -175,3 +214,36 @@ Pass Rate: 99%
 - Get Needing Attention: expected 200, actual: 200
 - Get Recent: expected 200, actual: 200
 - Get Statistics: expected 200, actual: 200
+
+### Recommendation
+- Health: expected 200, actual: 200
+- Readiness: expected 200, actual: 200
+- Basic: expected 200, actual: 200
+- With Limit: expected 200, actual: 200
+- With Category: expected 200, actual: 200
+- With Active Only: expected 200, actual: 200
+- With Seed: expected 200, actual: 200
+- Invalid User ID: expected 422, actual: 422
+- Invalid Limit: expected 422, actual: 422
+- Invalid Category: expected 422, actual: 422
+- No Token: expected 401/403, actual: 401
+- Analytics Status: expected 200, actual: 200
+- Bestseller Recommendations: expected 200, actual: 200
+- Trending Recommendations: expected 200, actual: 200
+- Hybrid Recommendations: expected 200, actual: 200
+- Dashboard Recommendations: expected 200, actual: 200
+- Large Limit Recommendations: expected 200, actual: 200
+### Analytics
+- Health: expected 200, actual: 200
+- Readiness: expected 200, actual: 200
+- Bestsellers: expected 200, actual: 200
+- Trending: expected 200, actual: 200
+- Categories: expected 200, actual: 200
+- Dashboard: expected 200, actual: 200
+### Search
+- Health: expected 200, actual: 200
+- Reindex: expected 200, actual: 200
+- Basic Search: expected 200, actual: 200
+- Price Range: expected 200, actual: 200
+- Category Filter: expected 200, actual: 200
+- Sort by Price: expected 200, actual: 200
