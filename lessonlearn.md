@@ -265,6 +265,32 @@ async def readiness():
 
 ---
 
+## 🔄 Cập nhật bài học mới (2025-09-30)
+
+### ✅ Bài học 1: Đồng bộ kỳ vọng test với hành vi API
+- Trường hợp: `PUT /api/orders/{id}/notes` với `notes = ""` trả 200. Ban đầu test kỳ vọng 400.
+- Bài học: Nếu cho phép xoá ghi chú, 200 là hợp lý. Điều chỉnh test thay vì ép API sai với nghiệp vụ.
+- Thực hành tốt: Ghi rõ quyết định trong tài liệu và OpenAPI.
+
+### ✅ Bài học 2: Quản lý tổng số test theo biến đếm
+- Vấn đề: Thêm test nhưng Total không tăng do thiếu biến trong mảng `$executed`.
+- Bài học: Mọi test phải có biến kết quả và được thêm vào khối tính tổng, summary JSON, và entity report.
+- Hành động: Bổ sung đầy đủ biến (Order/Category negative) → Total tăng chính xác (163).
+
+### ✅ Bài học 3: Chẩn đoán OpenAPI 401 có hệ thống
+- Tình huống: `/v3/api-docs` 401 dù đã `permitAll` và skip trong JWT filter.
+- Bài học: Cần log chi tiết security chain, xác minh matcher chính xác (`/v3/api-docs/**`) và filter order theo môi trường chạy.
+- Hành động: Tách “Docs Suite” trong script, thêm log chẩn đoán; sẽ fix tiếp.
+
+### ✅ Bài học 4: Negative/Boundary tests nâng độ tin cậy
+- Triển khai thêm nhiều case cho Order/Category (shippingFee/tax âm, thiếu address, sort invalid, v.v.).
+- Bài học: Negative tests phát hiện sớm lỗ hổng validation, chuẩn hoá phản hồi 400/404.
+
+### 🎯 Hành động tiếp theo đề xuất cho flow đặt hàng
+- Ưu tiên: Thanh toán + Idempotency.
+- Việc làm: Thêm `Idempotency-Key` cho `create-from-cart`, PaymentIntent (mock), finalize đơn, webhook giả lập, tests happy/fail/timeout/double-submit.
+
+
 ## 🚨 **Lỗi 9: Test Case Management và Tracking**
 
 ### **Vấn đề:**

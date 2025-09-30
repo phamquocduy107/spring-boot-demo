@@ -165,6 +165,28 @@ Scope: Search Service Filters Implementation
   - Add `/v3/api-docs/swagger-config` test.
   - File: `scripts/test-all-apis.ps1`.
 
+17) Order Update Notes empty expectation alignment
+- Symptom: Test kỳ vọng 400 khi `notes = ""`, nhưng API trả 200.
+- Decision: Chấp nhận `notes` rỗng (200) để cho phép xóa ghi chú; điều chỉnh test cho phù hợp.
+- Evidence: Test run hiển thị "Update Notes empty (should be 200)" PASS, tổng số test cập nhật đúng.
+- Impact: Tránh lỗi người dùng không xoá được ghi chú; hành vi rõ ràng trong API.
+
+18) Bổ sung negative/boundary tests cho Order/Category không tăng tổng test
+- Symptom: Thêm test mới nhưng Total Tests không đổi.
+- Root cause: Biến kết quả test mới không được thêm vào mảng `$executed` dùng để tính tổng.
+- Resolution: Bổ sung đầy đủ các biến (`$oCreateNegFee`, `$oCreateNoAddr`, `$oCreateEmptyCart`, `$oBadFee`, `$oBadTax`, `$oBadNotes`, `$oByNumberForbidden`, `$oByIdForbidden`, `$cPageSizeZero`, `$cSearchBlank`, `$cRemoveChildMissing`, `$cGenSlugEmpty`, ... ) vào khối tính tổng và summary JSON.
+- Evidence: Sau cập nhật, Total Tests tăng từ 150 → 163; Passed 162; Failed 1 (OpenAPI 401).
+
+19) OpenAPI `/v3/api-docs` 401 (đang theo dõi)
+- Symptom: Kiểm thử tự động cho `/v3/api-docs` trả 401.
+- Current status: Đã cấu hình `permitAll()` và bỏ qua trong JWT filter; Swagger UI và swagger-config OK; `/v3/api-docs` vẫn 401 trong script.
+- Next actions: Tăng log chẩn đoán, xác minh matcher chính xác `/v3/api-docs/**`, kiểm tra filter order thực tế môi trường.
+
+20) Kế hoạch mở rộng flow đặt hàng (định hướng)
+- Priority: Thanh toán + Idempotency trước (chống double-submit, finalize đơn, webhook giả lập).
+- Scope: `Idempotency-Key` cho `POST /orders/create-from-cart`, PaymentIntent (mock), finalize đơn, xuất hóa đơn, tests happy/fail/timeout/double-submit.
+
+
 ---
 
 ## 📊 **Project Summary**
