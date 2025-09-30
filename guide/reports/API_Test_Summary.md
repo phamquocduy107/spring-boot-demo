@@ -1,105 +1,105 @@
-﻿# API Test Summary
+# API Test Summary
 
-Date: 2025-09-29 16:58:22
+Date: 2025-09-29 21:51:41
 Mode: All
 Entity: All
 BaseUrl: http://localhost:8080
 Total: 100
-Passed: 93
-Failed: 7
-Pass Rate: 93%
+Passed: 99
+Failed: 1
+Pass Rate: 99%
 
 ## User
 {
-    "create":  200,
-    "deleteNoAuth":  401,
-    "getAll":  200,
-    "getAllNoAuth":  401,
-    "updateNoAuth":  401,
-    "createNoAuth":  401,
-    "delete":  204,
-    "getOne":  200,
-    "getOneNoAuth":  401,
-    "duplicate":  400,
-    "update":  200
+  "update": 200,
+  "deleteNoAuth": 401,
+  "create": 200,
+  "createNoAuth": 401,
+  "duplicate": 400,
+  "delete": 204,
+  "getAll": 200,
+  "getOneNoAuth": 401,
+  "getAllNoAuth": 401,
+  "getOne": 200,
+  "updateNoAuth": 401
 }
 
 ## Product
 {
-    "getAllNoAuth":  401,
-    "updateNoAuth":  401,
-    "deleteNoAuth":  null,
-    "createNoAuth":  401,
-    "delete":  null,
-    "targetId":  94,
-    "update":  200,
-    "getOne":  200,
-    "getAll":  200,
-    "active":  200,
-    "duplicate":  400,
-    "getOneNoAuth":  401,
-    "page":  200,
-    "create":  200
+  "getAll": 200,
+  "createNoAuth": 401,
+  "getOne": 200,
+  "getOneNoAuth": 401,
+  "targetId": 100,
+  "update": 200,
+  "page": 200,
+  "create": 200,
+  "active": 200,
+  "delete": null,
+  "deleteNoAuth": null,
+  "updateNoAuth": 401,
+  "duplicate": 400,
+  "getAllNoAuth": 401
 }
 
 ## Category
 {
-    "getAllNoAuth":  401,
-    "updateNoAuth":  401,
-    "deleteNoAuth":  401,
-    "roots":  200,
-    "createNoAuth":  401,
-    "delete":  204,
-    "targetId":  67,
-    "update":  200,
-    "getOne":  200,
-    "getAll":  200,
-    "duplicate":  400,
-    "getOneNoAuth":  401,
-    "page":  200,
-    "create":  200
+  "getAll": 200,
+  "createNoAuth": 401,
+  "getOne": 200,
+  "getOneNoAuth": 401,
+  "roots": 200,
+  "targetId": 73,
+  "update": 200,
+  "page": 200,
+  "create": 200,
+  "delete": 204,
+  "deleteNoAuth": 401,
+  "updateNoAuth": 401,
+  "duplicate": 400,
+  "getAllNoAuth": 401
 }
 
 ## Cart
 {
-    "updateQty":  200,
-    "removeItemNoAuth":  401,
-    "clearNoAuth":  401,
-    "addItem":  200,
-    "getNoAuth":  401,
-    "addItemNoAuth":  401,
-    "removeItem":  204,
-    "get":  200,
-    "updateQtyNoAuth":  401,
-    "clear":  204
+  "addItem": 200,
+  "getNoAuth": 401,
+  "clear": 204,
+  "clearNoAuth": 401,
+  "get": 200,
+  "updateQtyNoAuth": 401,
+  "removeItem": 204,
+  "updateQty": 200,
+  "addItemNoAuth": 401,
+  "removeItemNoAuth": 401
 }
 
 ## Order
 {
-    "byStatus":  200,
-    "getByNumberNoAuth":  401,
-    "createFromCart":  200,
-    "page":  200,
-    "createFromCartNoAuth":  401,
-    "orderNumber":  "ORD-20250929-829",
-    "getMyOrdersNoAuth":  401,
-    "getRecent":  200,
-    "getWithChanges":  200,
-    "updateStatusNoAuth":  401,
-    "updateNotesNoAuth":  401,
-    "getNeedingAttention":  200,
-    "getMyOrders":  200,
-    "getById":  200,
-    "updateShippingFee":  200,
-    "getByNumber":  200,
-    "updateNotes":  200,
-    "getStatistics":  200,
-    "targetId":  28,
-    "updateDiscount":  200,
-    "getByIdNoAuth":  401,
-    "updateStatus":  200,
-    "pageMax":  200,
-    "updateTax":  200
+  "updateShippingFee": 200,
+  "pageMax": 200,
+  "byStatus": 200,
+  "updateNotes": 200,
+  "getMyOrdersNoAuth": 401,
+  "getWithChanges": 200,
+  "page": 200,
+  "getNeedingAttention": 200,
+  "updateTax": 200,
+  "getByNumber": 200,
+  "getById": 200,
+  "getRecent": 200,
+  "getByIdNoAuth": 401,
+  "getByNumberNoAuth": 401,
+  "updateStatus": 200,
+  "getMyOrders": 200,
+  "createFromCartNoAuth": 401,
+  "getStatistics": 200,
+  "updateDiscount": 200,
+  "createFromCart": 200,
+  "updateNotesNoAuth": 401,
+  "updateStatusNoAuth": 401,
+  "orderNumber": "ORD-20250929-870",
+  "targetId": 34
 }
 
 ## Expected vs Actual

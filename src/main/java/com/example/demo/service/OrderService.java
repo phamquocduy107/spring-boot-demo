@@ -232,9 +232,24 @@ public class OrderService {
     // Paginated orders (admin)
     @Transactional(readOnly = true)
     public Page<OrderDTO> getOrdersPage(int page, int size, String sort) {
+        if (size < 1 || size > 100) {
+            throw new IllegalArgumentException("Page size must be between 1 and 100");
+        }
+
+        if (page < 0) {
+            throw new IllegalArgumentException("Page index must be >= 0");
+        }
+
         String[] parts = sort != null ? sort.split(",") : new String[] {"orderDate","desc"};
         String sortBy = parts.length > 0 && parts[0] != null && !parts[0].isBlank() ? parts[0] : "orderDate";
-        Sort.Direction dir = (parts.length > 1 && parts[1] != null && parts[1].equalsIgnoreCase("asc")) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        if (parts.length < 2 || parts[1] == null || parts[1].isBlank()) {
+            throw new IllegalArgumentException("Sort direction must be provided as 'asc' or 'desc'");
+        }
+        String dirToken = parts[1].toLowerCase();
+        if (!dirToken.equals("asc") && !dirToken.equals("desc")) {
+            throw new IllegalArgumentException("Invalid sort direction: " + parts[1]);
+        }
+        Sort.Direction dir = dirToken.equals("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(page, size, Sort.by(dir, sortBy));
         return orderRepository.findAll(pageable).map(OrderDTO::new);
     }

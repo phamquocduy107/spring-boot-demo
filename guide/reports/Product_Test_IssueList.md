@@ -83,3 +83,64 @@ Scope: Search Service Filters Implementation
 - Add error handling for missing categories
 - Implement retry logic for failed API calls
 - Add logging for debugging authentication issues
+
+
+---
+
+# Additional Issues and Fixes (2025-09-29)
+
+10) OpenAPI 401 Unauthorized (Swagger UI/API docs)
+- Symptom: Accessing `/swagger-ui.html` or `/v3/api-docs` returned 401.
+- Root cause: Swagger paths not fully excluded from JWT auth.
+- Resolution:
+  - In `SecurityConfig`, permit all for `/v3/api-docs`, `/v3/api-docs/**`, `/v3/api-docs/swagger-config`, `/swagger-ui.html`, `/swagger-ui/**`, `/swagger-ui/index.html`.
+  - In `JwtAuthenticationFilter`, skip filtering for those paths.
+  - Restart app to apply changes.
+
+11) Pagination validations inconsistent (Product/Category/Order)
+- Symptom: Expected 400 for invalid size/sort but got 200.
+- Root cause: Services parsed sort leniently and lacked size bounds.
+- Resolution:
+  - Enforce `size` in [1..100], `page >= 0` in service methods.
+  - Require strict `sort` format: `field,asc|desc`; reject missing/invalid direction.
+  - For Product page endpoint, wrap in try/catch to return 400 with message.
+  - Files: `ProductService`, `CategoryService`, `OrderService`, `ProductController`.
+
+12) PowerShell URL parsing error when updating Cart quantity
+- Symptom: `For input string: "=5"` when calling `PUT /api/cart/items/{id}?quantity=5`.
+- Root cause: String interpolation created malformed URL when `$pTargetId` was empty/not numeric.
+- Resolution:
+  - Build URL by concatenation: `$cartUrl + "/items/" + $pTargetId + "?quantity=5"`.
+  - Validate `$pTargetId` before use; add debug logs.
+  - File: `scripts/test-all-apis.ps1`.
+
+13) Product update 400 due to missing `category` (not null)
+- Symptom: `PUT /api/products/{id}` returned 400 if payload omitted `category`.
+- Root cause: `Product.category` is required; partial update inadvertently nulled it.
+- Resolution:
+  - Script fetches current product to include `category = @{ id = <currentId> }` in update payload.
+  - Controller returns `ProductDTO` to avoid serialization issues with proxies.
+  - Files: `scripts/test-all-apis.ps1`, `ProductController`.
+
+14) Order creation 400 from cart
+- Symptom: `POST /api/orders/create-from-cart` returned 400 with empty message.
+- Root cause: Cart empty or validation failed.
+- Resolution:
+  - Ensure item added to cart before creating order; add debug logs to verify cart items.
+  - After fix, order flow and subsequent admin endpoints pass.
+  - File: `scripts/test-all-apis.ps1`.
+
+15) Ambiguous path mapping captured `/page` as `{id}`
+- Symptom: `GET /api/categories/page` returned 400/404 due to `{id}` mapping consuming `page`.
+- Root cause: `@GetMapping("/{id}")` not constrained to digits.
+- Resolution:
+  - Change mappings to `/{id:\\d+}` (and `/{orderId:\\d+}`) to avoid conflict with `/page`.
+  - Files: `CategoryController`, `OrderController`.
+
+16) Test summary not counting new tests
+- Symptom: `API_Test_Summary.md` Total didn’t reflect added cases.
+- Root cause: Missing variables in `$executed` aggregation.
+- Resolution:
+  - Include all new test result variables (including OpenAPI checks) in `$executed` and summary JSON.
+  - Add `/v3/api-docs/swagger-config` test.
+  - File: `scripts/test-all-apis.ps1`.

@@ -49,7 +49,11 @@ public class ProductController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "id,desc") String sort
     ) {
-        return ResponseEntity.ok(productService.getProductsPage(page, size, sort).map(DtoMapper::toProductDTO));
+        try {
+            return ResponseEntity.ok(productService.getProductsPage(page, size, sort).map(DtoMapper::toProductDTO));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
     }
     
     // Get product by ID

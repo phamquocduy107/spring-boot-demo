@@ -1,6 +1,6 @@
-﻿# Cart Entity Test Report
+# Cart Entity Test Report
 
-**Date:** 2025-09-29 16:58:22
+**Date:** 2025-09-29 21:51:41
 **BaseUrl:** http://localhost:8080
 **Mode:** All
 
@@ -14,14 +14,14 @@
 
 - **Update Quantity:** Expected 200, Actual: 200
 - **Clear Cart (no token):** Expected 401/403, Actual: 401
-- **Add Item:** Expected 200, Actual: 200
-- **Clear Cart:** Expected 200/204, Actual: 204
-- **Remove Item (no token):** Expected 401/403, Actual: 401
-- **Update Quantity (no token):** Expected 401/403, Actual: 401
-- **Get Cart (no token):** Expected 401/403, Actual: 401
 - **Get Cart:** Expected 200/404, Actual: 200
+- **Add Item:** Expected 200, Actual: 200
+- **Update Quantity (no token):** Expected 401/403, Actual: 401
 - **Remove Item:** Expected 200/204, Actual: 204
+- **Get Cart (no token):** Expected 401/403, Actual: 401
 - **Add Item (no token):** Expected 401/403, Actual: 401
+- **Remove Item (no token):** Expected 401/403, Actual: 401
+- **Clear Cart:** Expected 200/204, Actual: 204
 
 ## Failed Tests
 
