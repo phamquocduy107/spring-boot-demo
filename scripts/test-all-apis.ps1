@@ -229,6 +229,15 @@ Write-Success "Obtained JWT (len=$($jwt.Length))"
 
 $authHeaders = @{ Authorization = "Bearer $jwt" }
 
+# Store login response for refresh token test
+$loginResponse = $null
+try {
+    $loginPayload = @{ email = "duydeptrai@example.com"; password = "pass123" }
+    $loginResponse = Invoke-RestMethod -Uri $loginUrl -Method POST -Body ($loginPayload | ConvertTo-Json) -ContentType "application/json"
+} catch {
+    Write-Warning "Could not get login response for refresh token test"
+}
+
 ${failures} = @()
 
 ${doCreate} = ($Mode -eq "Create" -or $Mode -eq "All")
@@ -258,6 +267,10 @@ $updateNoAuth = $null
 $deleteAuth = $null
 $deleteNoAuth = $null
 
+# Auth results
+$refreshTest = $null
+$invalidRefreshTest = $null
+
 # Product results
 $pCreate = $null
 $pCreateDup = $null
@@ -266,6 +279,16 @@ $pGetAllAuth = $null
 $pGetAllNoAuth = $null
 $pGetOneAuth = $null
 $pGetOneNoAuth = $null
+$pSearch = $null
+$pFeatured = $null
+$pByCategory = $null
+$pByBrand = $null
+$pPriceRange = $null
+$pMostExpensive = $null
+$pCheapest = $null
+$pLowStock = $null
+$pCountByCategory = $null
+$pActiveCount = $null
 $pUpdateAuth = $null
 $pUpdateNoAuth = $null
 $pDeleteAuth = $null
@@ -293,6 +316,13 @@ $cGetAllAuth = $null
 $cGetAllNoAuth = $null
 $cGetOneAuth = $null
 $cGetOneNoAuth = $null
+$cSearch = $null
+$cTree = $null
+$cInactive = $null
+$cWithProducts = $null
+$cProductCounts = $null
+$cByProductCount = $null
+$cGenerateSlug = $null
 $cUpdateAuth = $null
 $cUpdateNoAuth = $null
 $cDeleteAuth = $null
@@ -317,10 +347,15 @@ $cartGet = $null
 $cartGetNoAuth = $null
 $cartAddItem = $null
 $cartAddItemNoAuth = $null
+$cartAddItemInvalidProduct = $null
+$cartAddItemBadQty = $null
 $cartUpdateQty = $null
 $cartUpdateQtyNoAuth = $null
+$cartUpdateQtyZero = $null
+$cartUpdateQtyNegative = $null
 $cartRemoveItem = $null
 $cartRemoveItemNoAuth = $null
+$cartRemoveItemNotFound = $null
 $cartClear = $null
 $cartClearNoAuth = $null
 
@@ -1092,6 +1127,113 @@ if (${doProduct} -and ${doDelete} -and $pTargetId -and -not ${doOrder}) {
             details = if ($pDeleteNoAuth.body) { ($pDeleteNoAuth.body | ConvertTo-Json -Depth 10) } else { $null }
         }
     }
+
+    # Additional ProductController Tests
+    Write-Section "[Product] Search Products"
+    $pSearch = Try-InvokeJsonGet -Uri "$productsUrl/search?keyword=test" -Headers $authHeaders
+    if ($pSearch.success -and $pSearch.status -eq 200) {
+        $searchCount = 0
+        try { $searchCount = ($pSearch.body | Measure-Object).Count } catch {}
+        Write-Success "Product search returned: $searchCount items"
+    } else {
+        Write-Error "Product search failed ($($pSearch.status))"
+        $failures += Add-Failure -TestName "Product Search should be 200" -Expected "200" -Actual $pSearch.status -ResponseBody $pSearch.body -FailuresArray $failures
+    }
+
+    Write-Section "[Product] Featured Products"
+    $pFeatured = Try-InvokeJsonGet -Uri "$productsUrl/featured" -Headers $authHeaders
+    if ($pFeatured.success -and $pFeatured.status -eq 200) {
+        $featuredCount = 0
+        try { $featuredCount = ($pFeatured.body | Measure-Object).Count } catch {}
+        Write-Success "Featured products returned: $featuredCount items"
+    } else {
+        Write-Error "Featured products failed ($($pFeatured.status))"
+        $failures += Add-Failure -TestName "Product Featured should be 200" -Expected "200" -Actual $pFeatured.status -ResponseBody $pFeatured.body -FailuresArray $failures
+    }
+
+    Write-Section "[Product] Products by Category"
+    $pByCategory = Try-InvokeJsonGet -Uri "$productsUrl/category/$ProductCategoryId" -Headers $authHeaders
+    if ($pByCategory.success -and $pByCategory.status -eq 200) {
+        $categoryCount = 0
+        try { $categoryCount = ($pByCategory.body | Measure-Object).Count } catch {}
+        Write-Success "Products by category returned: $categoryCount items"
+    } else {
+        Write-Error "Products by category failed ($($pByCategory.status))"
+        $failures += Add-Failure -TestName "Product By Category should be 200" -Expected "200" -Actual $pByCategory.status -ResponseBody $pByCategory.body -FailuresArray $failures
+    }
+
+    Write-Section "[Product] Products by Brand"
+    $pByBrand = Try-InvokeJsonGet -Uri "$productsUrl/brand/TestBrand" -Headers $authHeaders
+    if ($pByBrand.success -and $pByBrand.status -eq 200) {
+        $brandCount = 0
+        try { $brandCount = ($pByBrand.body | Measure-Object).Count } catch {}
+        Write-Success "Products by brand returned: $brandCount items"
+    } else {
+        Write-Error "Products by brand failed ($($pByBrand.status))"
+        $failures += Add-Failure -TestName "Product By Brand should be 200" -Expected "200" -Actual $pByBrand.status -ResponseBody $pByBrand.body -FailuresArray $failures
+    }
+
+    Write-Section "[Product] Price Range Products"
+    $pPriceRange = Try-InvokeJsonGet -Uri "$productsUrl/price-range?minPrice=0&maxPrice=1000" -Headers $authHeaders
+    if ($pPriceRange.success -and $pPriceRange.status -eq 200) {
+        $priceCount = 0
+        try { $priceCount = ($pPriceRange.body | Measure-Object).Count } catch {}
+        Write-Success "Price range products returned: $priceCount items"
+    } else {
+        Write-Error "Price range products failed ($($pPriceRange.status))"
+        $failures += Add-Failure -TestName "Product Price Range should be 200" -Expected "200" -Actual $pPriceRange.status -ResponseBody $pPriceRange.body -FailuresArray $failures
+    }
+
+    Write-Section "[Product] Most Expensive Products"
+    $pMostExpensive = Try-InvokeJsonGet -Uri "$productsUrl/most-expensive" -Headers $authHeaders
+    if ($pMostExpensive.success -and $pMostExpensive.status -eq 200) {
+        $expensiveCount = 0
+        try { $expensiveCount = ($pMostExpensive.body | Measure-Object).Count } catch {}
+        Write-Success "Most expensive products returned: $expensiveCount items"
+    } else {
+        Write-Error "Most expensive products failed ($($pMostExpensive.status))"
+        $failures += Add-Failure -TestName "Product Most Expensive should be 200" -Expected "200" -Actual $pMostExpensive.status -ResponseBody $pMostExpensive.body -FailuresArray $failures
+    }
+
+    Write-Section "[Product] Cheapest Products"
+    $pCheapest = Try-InvokeJsonGet -Uri "$productsUrl/cheapest" -Headers $authHeaders
+    if ($pCheapest.success -and $pCheapest.status -eq 200) {
+        $cheapestCount = 0
+        try { $cheapestCount = ($pCheapest.body | Measure-Object).Count } catch {}
+        Write-Success "Cheapest products returned: $cheapestCount items"
+    } else {
+        Write-Error "Cheapest products failed ($($pCheapest.status))"
+        $failures += Add-Failure -TestName "Product Cheapest should be 200" -Expected "200" -Actual $pCheapest.status -ResponseBody $pCheapest.body -FailuresArray $failures
+    }
+
+    Write-Section "[Product] Low Stock Products"
+    $pLowStock = Try-InvokeJsonGet -Uri "$productsUrl/low-stock?threshold=5" -Headers $authHeaders
+    if ($pLowStock.success -and $pLowStock.status -eq 200) {
+        $lowStockCount = 0
+        try { $lowStockCount = ($pLowStock.body | Measure-Object).Count } catch {}
+        Write-Success "Low stock products returned: $lowStockCount items"
+    } else {
+        Write-Error "Low stock products failed ($($pLowStock.status))"
+        $failures += Add-Failure -TestName "Product Low Stock should be 200" -Expected "200" -Actual $pLowStock.status -ResponseBody $pLowStock.body -FailuresArray $failures
+    }
+
+    Write-Section "[Product] Product Count by Category"
+    $pCountByCategory = Try-InvokeJsonGet -Uri "$productsUrl/count/category/$ProductCategoryId" -Headers $authHeaders
+    if ($pCountByCategory.success -and $pCountByCategory.status -eq 200) {
+        Write-Success "Product count by category: $($pCountByCategory.body)"
+    } else {
+        Write-Error "Product count by category failed ($($pCountByCategory.status))"
+        $failures += Add-Failure -TestName "Product Count By Category should be 200" -Expected "200" -Actual $pCountByCategory.status -ResponseBody $pCountByCategory.body -FailuresArray $failures
+    }
+
+    Write-Section "[Product] Active Product Count"
+    $pActiveCount = Try-InvokeJsonGet -Uri "$productsUrl/count/active" -Headers $authHeaders
+    if ($pActiveCount.success -and $pActiveCount.status -eq 200) {
+        Write-Success "Active product count: $($pActiveCount.body)"
+    } else {
+        Write-Error "Active product count failed ($($pActiveCount.status))"
+        $failures += Add-Failure -TestName "Product Active Count should be 200" -Expected "200" -Actual $pActiveCount.status -ResponseBody $pActiveCount.body -FailuresArray $failures
+    }
 }
 
 # =====================
@@ -1411,6 +1553,99 @@ if (${doCategory} -and ${doDelete} -and $cTargetId) {
             details = if ($cDeleteNoAuth.body) { ($cDeleteNoAuth.body | ConvertTo-Json -Depth 10) } else { $null }
         }
     }
+
+    # Additional CategoryController Tests
+    Write-Section "[Category] Search Categories"
+    $cSearch = Try-InvokeJsonGet -Uri "$categoriesUrl/search?q=test" -Headers $authHeaders
+    if ($cSearch.success -and $cSearch.status -eq 200) {
+        $searchCount = 0
+        try { $searchCount = ($cSearch.body | Measure-Object).Count } catch {}
+        Write-Success "Category search returned: $searchCount items"
+    } else {
+        Write-Error "Category search failed ($($cSearch.status))"
+        $failures += Add-Failure -TestName "Category Search should be 200" -Expected "200" -Actual $cSearch.status -ResponseBody $cSearch.body -FailuresArray $failures
+    }
+
+    Write-Section "[Category] Category Tree"
+    $cTree = Try-InvokeJsonGet -Uri "$categoriesUrl/tree" -Headers $authHeaders
+    if ($cTree.success -and $cTree.status -eq 200) {
+        $treeCount = 0
+        try { $treeCount = ($cTree.body | Measure-Object).Count } catch {}
+        Write-Success "Category tree returned: $treeCount items"
+    } else {
+        Write-Error "Category tree failed ($($cTree.status))"
+        $failures += Add-Failure -TestName "Category Tree should be 200" -Expected "200" -Actual $cTree.status -ResponseBody $cTree.body -FailuresArray $failures
+    }
+
+    Write-Section "[Category] Inactive Categories"
+    $cInactive = Try-InvokeJsonGet -Uri "$categoriesUrl/inactive" -Headers $authHeaders
+    if ($cInactive.success -and $cInactive.status -eq 200) {
+        $inactiveCount = 0
+        try { $inactiveCount = ($cInactive.body | Measure-Object).Count } catch {}
+        Write-Success "Inactive categories returned: $inactiveCount items"
+    } else {
+        Write-Error "Inactive categories failed ($($cInactive.status))"
+        $failures += Add-Failure -TestName "Category Inactive should be 200" -Expected "200" -Actual $cInactive.status -ResponseBody $cInactive.body -FailuresArray $failures
+    }
+
+    Write-Section "[Category] Categories with Products"
+    $cWithProducts = Try-InvokeJsonGet -Uri "$categoriesUrl/with-products" -Headers $authHeaders
+    if ($cWithProducts.success -and $cWithProducts.status -eq 200) {
+        $withProductsCount = 0
+        try { $withProductsCount = ($cWithProducts.body | Measure-Object).Count } catch {}
+        Write-Success "Categories with products returned: $withProductsCount items"
+    } else {
+        Write-Error "Categories with products failed ($($cWithProducts.status))"
+        $failures += Add-Failure -TestName "Category With Products should be 200" -Expected "200" -Actual $cWithProducts.status -ResponseBody $cWithProducts.body -FailuresArray $failures
+    }
+
+    Write-Section "[Category] Category Product Counts"
+    $cProductCounts = Try-InvokeJsonGet -Uri "$categoriesUrl/product-counts" -Headers $authHeaders
+    if ($cProductCounts.success -and $cProductCounts.status -eq 200) {
+        Write-Success "Category product counts retrieved successfully"
+    } else {
+        Write-Error "Category product counts failed ($($cProductCounts.status))"
+        $failures += Add-Failure -TestName "Category Product Counts should be 200" -Expected "200" -Actual $cProductCounts.status -ResponseBody $cProductCounts.body -FailuresArray $failures
+    }
+
+    Write-Section "[Category] Categories by Product Count"
+    $cByProductCount = Try-InvokeJsonGet -Uri "$categoriesUrl/by-product-count?minCount=0" -Headers $authHeaders
+    if ($cByProductCount.success -and $cByProductCount.status -eq 200) {
+        $byProductCount = 0
+        try { $byProductCount = ($cByProductCount.body | Measure-Object).Count } catch {}
+        Write-Success "Categories by product count returned: $byProductCount items"
+    } else {
+        Write-Error "Categories by product count failed ($($cByProductCount.status))"
+        $failures += Add-Failure -TestName "Category By Product Count should be 200" -Expected "200" -Actual $cByProductCount.status -ResponseBody $cByProductCount.body -FailuresArray $failures
+    }
+
+    Write-Section "[Category] Generate Slug"
+    $cGenerateSlug = Try-InvokeJsonGet -Uri "$categoriesUrl/generate-slug?name=Test Category" -Headers $authHeaders
+    if ($cGenerateSlug.success -and $cGenerateSlug.status -eq 200) {
+        Write-Success "Slug generated: $($cGenerateSlug.body.slug)"
+    } else {
+        Write-Error "Slug generation failed ($($cGenerateSlug.status))"
+        $failures += Add-Failure -TestName "Category Generate Slug should be 200" -Expected "200" -Actual $cGenerateSlug.status -ResponseBody $cGenerateSlug.body -FailuresArray $failures
+    }
+}
+
+# Additional negative/boundary tests for Category
+if (${doCategory}) {
+    Write-Section "[Category] Page size=0 (should be 400)"
+    $cPageSizeZero = Try-InvokeJsonGet -Uri ($categoriesUrl + "/page?page=0&size=0&sort=id,desc") -Headers $authHeaders
+    if (-not $cPageSizeZero.success -and $cPageSizeZero.status -eq 400) { Write-Success "Category page size=0 rejected (400)" } else { $failures += Add-Failure -TestName "Category Page size=0 should be 400" -Expected "400" -Actual $cPageSizeZero.status -ResponseBody $cPageSizeZero.body -FailuresArray $failures }
+
+    Write-Section "[Category] Search blank q (should be 400)"
+    $cSearchBlank = Try-InvokeJsonGet -Uri ($categoriesUrl + "/search?q=") -Headers $authHeaders
+    if (-not $cSearchBlank.success -and $cSearchBlank.status -eq 400) { Write-Success "Blank search rejected (400)" } else { $failures += Add-Failure -TestName "Category Search blank should be 400" -Expected "400" -Actual $cSearchBlank.status -ResponseBody $cSearchBlank.body -FailuresArray $failures }
+
+    Write-Section "[Category] Remove child non-existent (should be 404/400)"
+    $cRemoveChildMissing = Try-InvokeDelete -Uri ($categoriesUrl + "/999999/children/888888") -Headers $authHeaders
+    if (-not $cRemoveChildMissing.success -and ($cRemoveChildMissing.status -eq 404 -or $cRemoveChildMissing.status -eq 400)) { Write-Success "Remove missing child rejected ($($cRemoveChildMissing.status))" } else { $failures += Add-Failure -TestName "Category Remove child missing should be 404/400" -Expected "404/400" -Actual $cRemoveChildMissing.status -ResponseBody $cRemoveChildMissing.body -FailuresArray $failures }
+
+    Write-Section "[Category] Generate slug empty name (should be 400)"
+    $cGenSlugEmpty = Try-InvokeJsonGet -Uri ($categoriesUrl + "/generate-slug?name=") -Headers $authHeaders
+    if (-not $cGenSlugEmpty.success -and $cGenSlugEmpty.status -eq 400) { Write-Success "Generate slug empty rejected (400)" } else { $failures += Add-Failure -TestName "Category Generate slug empty should be 400" -Expected "400" -Actual $cGenSlugEmpty.status -ResponseBody $cGenSlugEmpty.body -FailuresArray $failures }
 }
 
 # =====================
@@ -1479,6 +1714,26 @@ if (${doCart}) {
             }
         }
 
+        # Extra: Add Item with invalid productId should be 400/404
+        Write-Section "[Cart] Add Item (invalid product should be 400/404)"
+        $invalidAddUrl = $cartUrl + "/items?productId=99999999&quantity=1"
+        $cartAddItemInvalidProduct = Try-InvokeJsonPost -Uri $invalidAddUrl -Headers $authHeaders -Body $null
+        if (-not $cartAddItemInvalidProduct.success -and ($cartAddItemInvalidProduct.status -eq 400 -or $cartAddItemInvalidProduct.status -eq 404)) {
+            Write-Host "Invalid product rejected ($($cartAddItemInvalidProduct.status))" -ForegroundColor Green
+        } else {
+            $failures += Add-Failure -TestName "Cart Add Item invalid product should be 400/404" -Expected "400/404" -Actual $cartAddItemInvalidProduct.status -ResponseBody $cartAddItemInvalidProduct.body -FailuresArray $failures
+        }
+
+        # Extra: Add Item with bad quantity (0) should be 400/422
+        Write-Section "[Cart] Add Item (quantity=0 should be 400/422)"
+        $badQtyAddUrl = $cartUrl + "/items?productId=" + $pTargetId + "&quantity=0"
+        $cartAddItemBadQty = Try-InvokeJsonPost -Uri $badQtyAddUrl -Headers $authHeaders -Body $null
+        if (-not $cartAddItemBadQty.success -and ($cartAddItemBadQty.status -eq 400 -or $cartAddItemBadQty.status -eq 422)) {
+            Write-Host "Bad quantity rejected ($($cartAddItemBadQty.status))" -ForegroundColor Green
+        } else {
+            $failures += Add-Failure -TestName "Cart Add Item quantity=0 should be 400/422" -Expected "400/422" -Actual $cartAddItemBadQty.status -ResponseBody $cartAddItemBadQty.body -FailuresArray $failures
+        }
+
         Write-Section "[Cart] Update Quantity (authorized)"
         Write-Host "Debug: pTargetId value = '$pTargetId'" -ForegroundColor Yellow
         
@@ -1514,6 +1769,26 @@ if (${doCart}) {
             }
         }
 
+        # Extra: Update Quantity with zero should be 400/422
+        Write-Section "[Cart] Update Quantity (zero should be 400/422)"
+        $updateQtyZeroUrl = $cartUrl + "/items/" + $pTargetId + "?quantity=0"
+        $cartUpdateQtyZero = Try-InvokeJsonPut -Uri $updateQtyZeroUrl -Headers $authHeaders -Body $null
+        if (-not $cartUpdateQtyZero.success -and ($cartUpdateQtyZero.status -eq 400 -or $cartUpdateQtyZero.status -eq 422)) {
+            Write-Host "Zero quantity rejected ($($cartUpdateQtyZero.status))" -ForegroundColor Green
+        } else {
+            $failures += Add-Failure -TestName "Cart Update Quantity zero should be 400/422" -Expected "400/422" -Actual $cartUpdateQtyZero.status -ResponseBody $cartUpdateQtyZero.body -FailuresArray $failures
+        }
+
+        # Extra: Update Quantity with negative should be 400/422
+        Write-Section "[Cart] Update Quantity (negative should be 400/422)"
+        $updateQtyNegUrl = $cartUrl + "/items/" + $pTargetId + "?quantity=-5"
+        $cartUpdateQtyNegative = Try-InvokeJsonPut -Uri $updateQtyNegUrl -Headers $authHeaders -Body $null
+        if (-not $cartUpdateQtyNegative.success -and ($cartUpdateQtyNegative.status -eq 400 -or $cartUpdateQtyNegative.status -eq 422)) {
+            Write-Host "Negative quantity rejected ($($cartUpdateQtyNegative.status))" -ForegroundColor Green
+        } else {
+            $failures += Add-Failure -TestName "Cart Update Quantity negative should be 400/422" -Expected "400/422" -Actual $cartUpdateQtyNegative.status -ResponseBody $cartUpdateQtyNegative.body -FailuresArray $failures
+        }
+
         Write-Section "[Cart] Remove Item (authorized)"
         $removeItemUrl = $cartUrl + "/items/" + $pTargetId
         $cartRemoveItem = Try-InvokeDelete -Uri $removeItemUrl -Headers $authHeaders
@@ -1541,6 +1816,16 @@ if (${doCart}) {
                 actual = $cartRemoveItemNoAuth.status;
                 details = if ($cartRemoveItemNoAuth.body) { ($cartRemoveItemNoAuth.body | ConvertTo-Json -Depth 10) } else { $null }
             }
+        }
+
+        # Extra: Remove non-existent item should be 400/404
+        Write-Section "[Cart] Remove Item (not found should be 400/404)"
+        $removeMissingUrl = $cartUrl + "/items/99999999"
+        $cartRemoveItemNotFound = Try-InvokeDelete -Uri $removeMissingUrl -Headers $authHeaders
+        if (-not $cartRemoveItemNotFound.success -and ($cartRemoveItemNotFound.status -eq 400 -or $cartRemoveItemNotFound.status -eq 404)) {
+            Write-Host "Remove non-existent item rejected ($($cartRemoveItemNotFound.status))" -ForegroundColor Green
+        } else {
+            $failures += Add-Failure -TestName "Cart Remove Item not found should be 400/404" -Expected "400/404" -Actual $cartRemoveItemNotFound.status -ResponseBody $cartRemoveItemNotFound.body -FailuresArray $failures
         }
     }
 
@@ -1646,6 +1931,70 @@ if (${doOrder} -and ${doCreate}) {
             details = if ($oCreateFromCartNoAuth.body) { ($oCreateFromCartNoAuth.body | ConvertTo-Json -Depth 10) } else { $null }
         }
     }
+
+    # Additional Order negative/boundary tests
+    Write-Section "[Order] Create from Cart with negative shipping fee (should be 400)"
+    $negFeePayload = New-OrderPayload
+    $negFeePayload.shippingFee = -1
+    $oCreateNegFee = Try-InvokeJsonPost -Uri "$ordersUrl/create-from-cart" -Headers $authHeaders -Body $negFeePayload
+    if (-not $oCreateNegFee.success -and $oCreateNegFee.status -eq 400) { Write-Success "Negative fee rejected (400)" } else { $failures += Add-Failure -TestName "Order Create negative fee should be 400" -Expected "400" -Actual $oCreateNegFee.status -ResponseBody $oCreateNegFee.body -FailuresArray $failures }
+
+    Write-Section "[Order] Create from Cart with missing address (should be 400)"
+    $noAddrPayload = @{ shippingAddress = $null; paymentMethod = "CASH_ON_DELIVERY"; shippingFee = 0 }
+    $oCreateNoAddr = Try-InvokeJsonPost -Uri "$ordersUrl/create-from-cart" -Headers $authHeaders -Body $noAddrPayload
+    if (-not $oCreateNoAddr.success -and $oCreateNoAddr.status -eq 400) { Write-Success "Missing address rejected (400)" } else { $failures += Add-Failure -TestName "Order Create missing address should be 400" -Expected "400" -Actual $oCreateNoAddr.status -ResponseBody $oCreateNoAddr.body -FailuresArray $failures }
+
+    Write-Section "[Order] Update status with invalid enum (should be 400)"
+    $badStatusResp = Try-InvokeJsonPut -Uri ("$ordersUrl/0/status") -Headers $authHeaders -Body @{ status = "NOT_A_STATUS" }
+    if (-not $badStatusResp.success -and $badStatusResp.status -eq 400) { Write-Success "Invalid status rejected (400)" } else { $failures += Add-Failure -TestName "Order Update invalid status should be 400" -Expected "400" -Actual $badStatusResp.status -ResponseBody $badStatusResp.body -FailuresArray $failures }
+
+    Write-Section "[Order] Get by number (foreign user should be 403)"
+    if ($oOrderNumber) {
+        $userEmail2 = New-RandomEmail
+        $newUser2 = @{ name = "Other User"; email = $userEmail2; password = "pass1234"; role = "USER" }
+        $created2 = Try-InvokeJsonPost -Uri $usersUrl -Headers $authHeaders -Body $newUser2
+        if ($created2.success) {
+            $login2 = Try-InvokeJsonPost -Uri $loginUrl -Headers @{} -Body @{ email = $userEmail2; password = "pass1234" }
+            if ($login2.success) {
+                $headers2 = @{ Authorization = "Bearer $($login2.body.accessToken)" }
+                $oByNumberForbidden = Try-InvokeJsonGet -Uri ("$ordersUrl/number/$oOrderNumber") -Headers $headers2
+                if (-not $oByNumberForbidden.success -and $oByNumberForbidden.status -eq 403) { Write-Success "Foreign order forbidden (403)" } else { $failures += Add-Failure -TestName "Order foreign access should be 403" -Expected "403" -Actual $oByNumberForbidden.status -ResponseBody $oByNumberForbidden.body -FailuresArray $failures }
+            }
+        }
+    }
+
+    Write-Section "[Order] Create from Cart with empty cart (should be 400)"
+    # Clear cart, then try create
+    $ignore = Try-InvokeDelete -Uri $cartUrl -Headers $authHeaders
+    $oCreateEmptyCart = Try-InvokeJsonPost -Uri "$ordersUrl/create-from-cart" -Headers $authHeaders -Body $oPayload
+    if (-not $oCreateEmptyCart.success -and ($oCreateEmptyCart.status -eq 400 -or $oCreateEmptyCart.status -eq 422)) { Write-Success "Empty cart order rejected ($($oCreateEmptyCart.status))" } else { $failures += Add-Failure -TestName "Order Create empty cart should be 400/422" -Expected "400/422" -Actual $oCreateEmptyCart.status -ResponseBody $oCreateEmptyCart.body -FailuresArray $failures }
+
+    if ($oTargetId) {
+        Write-Section "[Order] Update Shipping Fee negative (should be 400)"
+        $oBadFee = Try-InvokeJsonPut -Uri "$ordersUrl/$oTargetId/shipping-fee" -Headers $authHeaders -Body @{ shippingFee = -10 }
+        if (-not $oBadFee.success -and $oBadFee.status -eq 400) { Write-Success "Negative shipping fee rejected (400)" } else { $failures += Add-Failure -TestName "Order Update shipping fee negative should be 400" -Expected "400" -Actual $oBadFee.status -ResponseBody $oBadFee.body -FailuresArray $failures }
+
+        Write-Section "[Order] Update Tax negative (should be 400)"
+        $oBadTax = Try-InvokeJsonPut -Uri "$ordersUrl/$oTargetId/tax" -Headers $authHeaders -Body @{ taxAmount = -5 }
+        if (-not $oBadTax.success -and $oBadTax.status -eq 400) { Write-Success "Negative tax rejected (400)" } else { $failures += Add-Failure -TestName "Order Update tax negative should be 400" -Expected "400" -Actual $oBadTax.status -ResponseBody $oBadTax.body -FailuresArray $failures }
+
+        Write-Section "[Order] Update Notes empty (should be 200)"
+        $oBadNotes = Try-InvokeJsonPut -Uri "$ordersUrl/$oTargetId/notes" -Headers $authHeaders -Body @{ notes = "" }
+        if ($oBadNotes.success -and $oBadNotes.status -eq 200) { Write-Success "Empty notes accepted (200)" } else { $failures += Add-Failure -TestName "Order Update notes empty should be 200" -Expected "200" -Actual $oBadNotes.status -ResponseBody $oBadNotes.body -FailuresArray $failures }
+
+        Write-Section "[Order] Get by ID (foreign user should be 403)"
+        $userEmail3 = New-RandomEmail
+        $newUser3 = @{ name = "Foreign User"; email = $userEmail3; password = "pass1234"; role = "USER" }
+        $created3 = Try-InvokeJsonPost -Uri $usersUrl -Headers $authHeaders -Body $newUser3
+        if ($created3.success) {
+            $login3 = Try-InvokeJsonPost -Uri $loginUrl -Headers @{} -Body @{ email = $userEmail3; password = "pass1234" }
+            if ($login3.success) {
+                $headers3 = @{ Authorization = "Bearer $($login3.body.accessToken)" }
+                $oByIdForbidden = Try-InvokeJsonGet -Uri ("$ordersUrl/$oTargetId") -Headers $headers3
+                if (-not $oByIdForbidden.success -and $oByIdForbidden.status -eq 403) { Write-Success "Foreign order by ID forbidden (403)" } else { $failures += Add-Failure -TestName "Order foreign get by ID should be 403" -Expected "403" -Actual $oByIdForbidden.status -ResponseBody $oByIdForbidden.body -FailuresArray $failures }
+            }
+        }
+    }
 }
 
 if (${doOrder} -and ${doGet} -and $oTargetId) {
@@ -1737,6 +2086,34 @@ if (${doOrder} -and ${doGetAll}) {
             details = if ($oGetMyOrdersNoAuth.body) { ($oGetMyOrdersNoAuth.body | ConvertTo-Json -Depth 10) } else { $null }
         }
     }
+}
+
+# =====================
+# Auth Controller Tests
+# =====================
+
+Write-Section "[Auth] Refresh Token Test"
+if ($loginResponse -and $loginResponse.refreshToken) {
+    $refreshPayload = @{ refreshToken = $loginResponse.refreshToken }
+    $refreshTest = Try-InvokeJsonPost -Uri "$BaseUrl/api/auth/refresh-token" -Headers @{} -Body $refreshPayload
+    if ($refreshTest.success -and $refreshTest.status -eq 200 -and $refreshTest.body.accessToken) {
+        Write-Success "Refresh token test passed - new access token obtained"
+    } else {
+        Write-Error "Refresh token test failed ($($refreshTest.status))"
+        $failures += Add-Failure -TestName "Auth Refresh Token should be 200" -Expected "200" -Actual $refreshTest.status -ResponseBody $refreshTest.body -FailuresArray $failures
+    }
+} else {
+    Write-Warning "Skipping refresh token test - no refresh token available"
+}
+
+Write-Section "[Auth] Refresh Token Invalid Test"
+$invalidRefreshPayload = @{ refreshToken = "invalid-token-12345" }
+$invalidRefreshTest = Try-InvokeJsonPost -Uri "$BaseUrl/api/auth/refresh-token" -Headers @{} -Body $invalidRefreshPayload
+if (-not $invalidRefreshTest.success -and $invalidRefreshTest.status -eq 400) {
+    Write-Success "Invalid refresh token correctly rejected (400)"
+} else {
+    Write-Warning "Unexpected invalid refresh token result: success=$($invalidRefreshTest.success) status=$($invalidRefreshTest.status)"
+    $failures += Add-Failure -TestName "Auth Invalid Refresh Token should be 400" -Expected "400" -Actual $invalidRefreshTest.status -ResponseBody $invalidRefreshTest.body -FailuresArray $failures
 }
 
 # =====================
@@ -2451,6 +2828,10 @@ Write-Section "Summary"
     updateUnauthorizedStatus = if ($updateNoAuth) { $updateNoAuth.status } else { $null }
     deleteAuthorizedStatus = if ($deleteAuth) { $deleteAuth.status } else { $null }
     deleteUnauthorizedStatus = if ($deleteNoAuth) { $deleteNoAuth.status } else { $null }
+    auth = @{
+        refreshToken = if ($refreshTest) { $refreshTest.status } else { $null }
+        invalidRefreshToken = if ($invalidRefreshTest) { $invalidRefreshTest.status } else { $null }
+    }
     product = @{
         createStatus = if ($pCreate) { $pCreate.status } else { $null }
         duplicateStatus = if ($pCreateDup) { $pCreateDup.status } else { $null }
@@ -2465,6 +2846,16 @@ Write-Section "Summary"
         deleteStatus = if ($pDeleteAuth) { $pDeleteAuth.status } else { $null }
         deleteNoAuthStatus = if ($pDeleteNoAuth) { $pDeleteNoAuth.status } else { $null }
         targetId = $pTargetId
+        searchStatus = if ($pSearch) { $pSearch.status } else { $null }
+        featuredStatus = if ($pFeatured) { $pFeatured.status } else { $null }
+        byCategoryStatus = if ($pByCategory) { $pByCategory.status } else { $null }
+        byBrandStatus = if ($pByBrand) { $pByBrand.status } else { $null }
+        priceRangeStatus = if ($pPriceRange) { $pPriceRange.status } else { $null }
+        mostExpensiveStatus = if ($pMostExpensive) { $pMostExpensive.status } else { $null }
+        cheapestStatus = if ($pCheapest) { $pCheapest.status } else { $null }
+        lowStockStatus = if ($pLowStock) { $pLowStock.status } else { $null }
+        countByCategoryStatus = if ($pCountByCategory) { $pCountByCategory.status } else { $null }
+        activeCountStatus = if ($pActiveCount) { $pActiveCount.status } else { $null }
     }
     category = @{
         createStatus = if ($cCreate) { $cCreate.status } else { $null }
@@ -2480,16 +2871,28 @@ Write-Section "Summary"
         deleteStatus = if ($cDeleteAuth) { $cDeleteAuth.status } else { $null }
         deleteNoAuthStatus = if ($cDeleteNoAuth) { $cDeleteNoAuth.status } else { $null }
         targetId = $cTargetId
+        searchStatus = if ($cSearch) { $cSearch.status } else { $null }
+        treeStatus = if ($cTree) { $cTree.status } else { $null }
+        inactiveStatus = if ($cInactive) { $cInactive.status } else { $null }
+        withProductsStatus = if ($cWithProducts) { $cWithProducts.status } else { $null }
+        productCountsStatus = if ($cProductCounts) { $cProductCounts.status } else { $null }
+        byProductCountStatus = if ($cByProductCount) { $cByProductCount.status } else { $null }
+        generateSlugStatus = if ($cGenerateSlug) { $cGenerateSlug.status } else { $null }
     }
     cart = @{
         getStatus = if ($cartGet) { $cartGet.status } else { $null }
         getNoAuthStatus = if ($cartGetNoAuth) { $cartGetNoAuth.status } else { $null }
         addItemStatus = if ($cartAddItem) { $cartAddItem.status } else { $null }
         addItemNoAuthStatus = if ($cartAddItemNoAuth) { $cartAddItemNoAuth.status } else { $null }
+        addItemInvalidProductStatus = if ($cartAddItemInvalidProduct) { $cartAddItemInvalidProduct.status } else { $null }
+        addItemBadQtyStatus = if ($cartAddItemBadQty) { $cartAddItemBadQty.status } else { $null }
         updateQtyStatus = if ($cartUpdateQty) { $cartUpdateQty.status } else { $null }
         updateQtyNoAuthStatus = if ($cartUpdateQtyNoAuth) { $cartUpdateQtyNoAuth.status } else { $null }
+        updateQtyZeroStatus = if ($cartUpdateQtyZero) { $cartUpdateQtyZero.status } else { $null }
+        updateQtyNegativeStatus = if ($cartUpdateQtyNegative) { $cartUpdateQtyNegative.status } else { $null }
         removeItemStatus = if ($cartRemoveItem) { $cartRemoveItem.status } else { $null }
         removeItemNoAuthStatus = if ($cartRemoveItemNoAuth) { $cartRemoveItemNoAuth.status } else { $null }
+        removeItemNotFoundStatus = if ($cartRemoveItemNotFound) { $cartRemoveItemNotFound.status } else { $null }
         clearStatus = if ($cartClear) { $cartClear.status } else { $null }
         clearNoAuthStatus = if ($cartClearNoAuth) { $cartClearNoAuth.status } else { $null }
     }
@@ -2564,9 +2967,13 @@ $ts2 = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
 $executed = @()
 foreach ($v in @(
     $create1,$create2,$create3,$getAllAuth,$getAllNoAuth,$getOneAuth,$getOneNoAuth,$updateAuth,$updateNoAuth,$deleteAuth,$deleteNoAuth,$afterDel,
+    $refreshTest,$invalidRefreshTest,
     $pCreate,$pCreateDup,$pCreateNoAuth,$pGetAllAuth,$pGetAllNoAuth,$pGetOneAuth,$pGetOneNoAuth,$pUpdateAuth,$pUpdateNoAuth,$pDeleteAuth,$pDeleteNoAuth,$pAfterDel,
+    $pSearch,$pFeatured,$pByCategory,$pByBrand,$pPriceRange,$pMostExpensive,$pCheapest,$pLowStock,$pCountByCategory,$pActiveCount,
     $cCreate,$cCreateDup,$cCreateNoAuth,$cGetAllAuth,$cGetAllNoAuth,$cGetOneAuth,$cGetOneNoAuth,$cUpdateAuth,$cUpdateNoAuth,$cDeleteAuth,$cDeleteNoAuth,$cAfterDel,
+    $cSearch,$cTree,$cInactive,$cWithProducts,$cProductCounts,$cByProductCount,$cGenerateSlug,
     $cartGet,$cartGetNoAuth,$cartAddItem,$cartAddItemNoAuth,$cartUpdateQty,$cartUpdateQtyNoAuth,$cartRemoveItem,$cartRemoveItemNoAuth,$cartClear,$cartClearNoAuth,
+    $cartAddItemInvalidProduct,$cartAddItemBadQty,$cartUpdateQtyZero,$cartUpdateQtyNegative,$cartRemoveItemNotFound,
     $oCreateFromCart,$oCreateFromCartNoAuth,$oGetById,$oGetByIdNoAuth,$oGetByNumber,$oGetByNumberNoAuth,$oGetMyOrders,$oGetMyOrdersNoAuth,
     $oUpdateStatus,$oUpdateStatusNoAuth,$oUpdateShippingFee,$oUpdateTax,$oUpdateDiscount,$oUpdateNotes,$oUpdateNotesNoAuth,
     $oGetWithChanges,$oGetNeedingAttention,$oGetRecent,$oGetStatistics,
@@ -2578,8 +2985,13 @@ foreach ($v in @(
     $oPage,$oPageForbidden,$oPageNoAuth,$oPageBadSort,$oPageNeg,$oGetByStatus,$oGetByStatusNoAuth,
     $oPageTooBig,$oByStatusForbiddenUser,$oWithChangesForbiddenUser,$oNeedingAttentionForbiddenUser,$oRecentForbiddenUser,$oStatsForbiddenUser,$oGetOtherForbidden,$oGetNumberOtherForbidden,
     $oPageMax,$oPageNegPage,$oPageMissingDir,$oGetByIdNotFound,$oGetByNumberNotFound,
+    # Newly added Order negative/boundary test results
+    $oCreateNegFee,$oCreateNoAddr,$badStatusResp,$oByNumberForbidden,$oCreateEmptyCart,
+    $oBadFee,$oBadTax,$oBadNotes,$oByIdForbidden,
     $pPageMax,$pPageNegPage,$pPageMissingDir,
     $cPageMax,$cPageNegPage,$cPageMissingDir,
+    # Newly added Category negative/boundary test results
+    $cPageSizeZero,$cSearchBlank,$cRemoveChildMissing,$cGenSlugEmpty,
     $openApiDocs,$swaggerUi,$openApiSwaggerConfig,
     $recHealth,$recReadiness,$recBasic,$recWithLimit,$recWithCategory,$recWithActiveOnly,$recWithSeed,
     $recInvalidUserId,$recInvalidLimit,$recInvalidCategory,$recNoAuth,$recAnalyticsStatus,$recBestseller,$recTrending,$recHybrid,
@@ -2665,10 +3077,15 @@ $summary += (ConvertTo-Json @{
     getNoAuth = if ($cartGetNoAuth) { $cartGetNoAuth.status } else { $null }
     addItem = if ($cartAddItem) { $cartAddItem.status } else { $null }
     addItemNoAuth = if ($cartAddItemNoAuth) { $cartAddItemNoAuth.status } else { $null }
+    addItemInvalidProduct = if ($cartAddItemInvalidProduct) { $cartAddItemInvalidProduct.status } else { $null }
+    addItemBadQty = if ($cartAddItemBadQty) { $cartAddItemBadQty.status } else { $null }
     updateQty = if ($cartUpdateQty) { $cartUpdateQty.status } else { $null }
     updateQtyNoAuth = if ($cartUpdateQtyNoAuth) { $cartUpdateQtyNoAuth.status } else { $null }
+    updateQtyZero = if ($cartUpdateQtyZero) { $cartUpdateQtyZero.status } else { $null }
+    updateQtyNegative = if ($cartUpdateQtyNegative) { $cartUpdateQtyNegative.status } else { $null }
     removeItem = if ($cartRemoveItem) { $cartRemoveItem.status } else { $null }
     removeItemNoAuth = if ($cartRemoveItemNoAuth) { $cartRemoveItemNoAuth.status } else { $null }
+    removeItemNotFound = if ($cartRemoveItemNotFound) { $cartRemoveItemNotFound.status } else { $null }
     clear = if ($cartClear) { $cartClear.status } else { $null }
     clearNoAuth = if ($cartClearNoAuth) { $cartClearNoAuth.status } else { $null }
 } -Depth 4)

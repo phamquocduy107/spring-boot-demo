@@ -1,6 +1,6 @@
-# Product Entity Test Report
+﻿# Product Entity Test Report
 
-**Date:** 2025-09-30 10:43:02
+**Date:** 2025-09-30 16:02:40
 **BaseUrl:** http://localhost:8080
 **Mode:** All
 
@@ -12,17 +12,17 @@
 
 ## Test Results
 
-- **Create Duplicate SKU:** Expected 400, Actual: 400
-- **Create Product:** Expected 200/201, Actual: 200
-- **Get by ID (no token):** Expected 401/403, Actual: 401
-- **Delete (no token):** Expected 401/403, Actual: Not executed
-- **Update:** Expected 200, Actual: 200
-- **Delete:** Expected 200/204, Actual: Not executed
-- **Get All:** Expected 200, Actual: 200
 - **Get by ID:** Expected 200, Actual: 200
+- **Update:** Expected 200, Actual: 200
+- **Get by ID (no token):** Expected 401/403, Actual: 401
+- **Delete:** Expected 200/204, Actual: Not executed
 - **Get All (no token):** Expected 401/403, Actual: 401
 - **Create (no token):** Expected 401/403, Actual: 401
+- **Create Duplicate SKU:** Expected 400, Actual: 400
+- **Delete (no token):** Expected 401/403, Actual: Not executed
 - **Update (no token):** Expected 401/403, Actual: 401
+- **Create Product:** Expected 200/201, Actual: 200
+- **Get All:** Expected 200, Actual: 200
 
 ## Failed Tests
 

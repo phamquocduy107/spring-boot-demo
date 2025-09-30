@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.NoSuchElementException;
 
 @Service
 public class CartService {
@@ -58,7 +59,7 @@ public class CartService {
             throw new IllegalArgumentException("Quantity must be positive");
         }
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new IllegalArgumentException("Product not found"));
+                .orElseThrow(() -> new NoSuchElementException("Product not found"));
         BigDecimal priceAtAdd = product.getPrice();
         cart.addItem(product, quantity, priceAtAdd);
         Cart saved = cartRepository.save(cart);
@@ -70,10 +71,16 @@ public class CartService {
     public Cart updateQuantity(Long userId, Long productId, int quantity) {
         Cart cart = getOrCreateActiveCart(userId);
         if (quantity <= 0) {
-            cart.removeItemByProductId(productId);
-        } else {
-            cart.updateQuantity(productId, quantity);
+            throw new IllegalArgumentException("Quantity must be >= 1");
         }
+
+        boolean exists = cart.getItems().stream()
+                .anyMatch(ci -> ci.getProduct() != null && productId.equals(ci.getProduct().getId()));
+        if (!exists) {
+            throw new NoSuchElementException("Item not found in cart");
+        }
+
+        cart.updateQuantity(productId, quantity);
         Cart saved = cartRepository.save(cart);
         cache(userId, saved);
         return saved;
@@ -82,6 +89,11 @@ public class CartService {
     @Transactional
     public void removeItem(Long userId, Long productId) {
         Cart cart = getOrCreateActiveCart(userId);
+        boolean exists = cart.getItems().stream()
+                .anyMatch(ci -> ci.getProduct() != null && productId.equals(ci.getProduct().getId()));
+        if (!exists) {
+            throw new NoSuchElementException("Item not found in cart");
+        }
         cart.removeItemByProductId(productId);
         cartRepository.save(cart);
         cache(userId, cart);

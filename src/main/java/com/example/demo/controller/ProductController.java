@@ -8,6 +8,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -16,6 +20,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/products")
 @CrossOrigin(origins = "*")
+@Validated
 public class ProductController {
     
     @Autowired
@@ -45,8 +50,8 @@ public class ProductController {
     // Paginated products
     @GetMapping("/page")
     public ResponseEntity<?> getProductsPage(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) int size,
             @RequestParam(defaultValue = "id,desc") String sort
     ) {
         try {
@@ -84,6 +89,8 @@ public class ProductController {
         try {
             Product updatedProduct = productService.updateProduct(id, productDetails);
             return ResponseEntity.ok(DtoMapper.toProductDTO(updatedProduct));
+        } catch (java.util.NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         } catch (Exception e) {
@@ -98,6 +105,8 @@ public class ProductController {
         try {
             productService.deleteProduct(id);
             return ResponseEntity.ok("Product deleted successfully");
+        } catch (java.util.NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         } catch (Exception e) {
@@ -112,6 +121,8 @@ public class ProductController {
         try {
             Product product = productService.deactivateProduct(id);
             return ResponseEntity.ok(product);
+        } catch (java.util.NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         } catch (Exception e) {
@@ -129,7 +140,7 @@ public class ProductController {
     
     // Get products by category slug
     @GetMapping("/category/slug/{slug}")
-    public ResponseEntity<List<ProductDTO>> getProductsByCategorySlug(@PathVariable String slug) {
+    public ResponseEntity<List<ProductDTO>> getProductsByCategorySlug(@PathVariable @NotBlank String slug) {
         List<ProductDTO> products = productService.getProductsByCategorySlug(slug).stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
@@ -143,7 +154,7 @@ public class ProductController {
     
     // Get products by brand
     @GetMapping("/brand/{brand}")
-    public ResponseEntity<List<ProductDTO>> getProductsByBrand(@PathVariable String brand) {
+    public ResponseEntity<List<ProductDTO>> getProductsByBrand(@PathVariable @NotBlank String brand) {
         List<ProductDTO> products = productService.getProductsByBrand(brand).stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
@@ -164,7 +175,7 @@ public class ProductController {
     
     // Search products
     @GetMapping("/search")
-    public ResponseEntity<List<ProductDTO>> searchProducts(@RequestParam String keyword) {
+    public ResponseEntity<List<ProductDTO>> searchProducts(@RequestParam @NotBlank String keyword) {
         List<ProductDTO> products = productService.searchProducts(keyword).stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
@@ -172,8 +183,8 @@ public class ProductController {
     // Get products by price range
     @GetMapping("/price-range")
     public ResponseEntity<List<ProductDTO>> getProductsByPriceRange(
-            @RequestParam BigDecimal minPrice, 
-            @RequestParam BigDecimal maxPrice) {
+            @RequestParam @DecimalMin("0.0") BigDecimal minPrice,
+            @RequestParam @DecimalMin("0.0") BigDecimal maxPrice) {
         List<ProductDTO> products = productService.getProductsByPriceRange(minPrice, maxPrice).stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
@@ -182,18 +193,20 @@ public class ProductController {
     @GetMapping("/price-range/category/{id}")
     public ResponseEntity<List<ProductDTO>> getProductsByPriceRangeAndCategoryId(
             @PathVariable("id") Long categoryId,
-            @RequestParam BigDecimal minPrice, 
-            @RequestParam BigDecimal maxPrice) {
+            @RequestParam @DecimalMin("0.0") BigDecimal minPrice,
+            @RequestParam @DecimalMin("0.0") BigDecimal maxPrice) {
         List<ProductDTO> products = productService.getProductsByPriceRangeAndCategoryId(minPrice, maxPrice, categoryId).stream().map(DtoMapper::toProductDTO).toList();
         return ResponseEntity.ok(products);
     }
     
     // Update stock quantity
     @PutMapping("/{id}/stock")
-    public ResponseEntity<?> updateStock(@PathVariable Long id, @RequestParam Integer quantity) {
+    public ResponseEntity<?> updateStock(@PathVariable Long id, @RequestParam @Min(0) Integer quantity) {
         try {
             Product product = productService.updateStock(id, quantity);
             return ResponseEntity.ok(product);
+        } catch (java.util.NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         } catch (Exception e) {
@@ -204,10 +217,12 @@ public class ProductController {
     
     // Add stock
     @PutMapping("/{id}/stock/add")
-    public ResponseEntity<?> addStock(@PathVariable Long id, @RequestParam Integer quantity) {
+    public ResponseEntity<?> addStock(@PathVariable Long id, @RequestParam @Min(1) Integer quantity) {
         try {
             Product product = productService.addStock(id, quantity);
             return ResponseEntity.ok(product);
+        } catch (java.util.NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         } catch (Exception e) {
@@ -218,10 +233,12 @@ public class ProductController {
     
     // Reduce stock
     @PutMapping("/{id}/stock/reduce")
-    public ResponseEntity<?> reduceStock(@PathVariable Long id, @RequestParam Integer quantity) {
+    public ResponseEntity<?> reduceStock(@PathVariable Long id, @RequestParam @Min(1) Integer quantity) {
         try {
             Product product = productService.reduceStock(id, quantity);
             return ResponseEntity.ok(product);
+        } catch (java.util.NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         } catch (Exception e) {
@@ -267,14 +284,14 @@ public class ProductController {
     
     // Check if product exists by SKU
     @GetMapping("/exists/sku/{sku}")
-    public ResponseEntity<Boolean> existsBySku(@PathVariable String sku) {
+    public ResponseEntity<Boolean> existsBySku(@PathVariable @NotBlank String sku) {
         boolean exists = productService.existsBySku(sku);
         return ResponseEntity.ok(exists);
     }
     
     // Check if product exists by name
     @GetMapping("/exists/name/{name}")
-    public ResponseEntity<Boolean> existsByName(@PathVariable String name) {
+    public ResponseEntity<Boolean> existsByName(@PathVariable @NotBlank String name) {
         boolean exists = productService.existsByName(name);
         return ResponseEntity.ok(exists);
     }

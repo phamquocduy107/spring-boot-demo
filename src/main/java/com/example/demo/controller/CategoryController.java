@@ -10,6 +10,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +21,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/categories")
+@Validated
 public class CategoryController {
 
     @Autowired
@@ -75,6 +79,8 @@ public class CategoryController {
         try {
             Category added = categoryService.addChild(parentId, child);
             return ResponseEntity.status(HttpStatus.CREATED).body(DtoMapper.toCategoryDTO(added, true));
+        } catch (java.util.NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         } catch (Exception e) {
@@ -87,6 +93,8 @@ public class CategoryController {
         try {
             categoryService.removeChild(parentId, childId);
             return ResponseEntity.noContent().build();
+        } catch (java.util.NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         } catch (Exception e) {
@@ -119,7 +127,7 @@ public class CategoryController {
 
     // Search Endpoints
     @GetMapping("/search")
-    public ResponseEntity<List<CategoryDTO>> searchCategories(@RequestParam String q) {
+    public ResponseEntity<List<CategoryDTO>> searchCategories(@RequestParam @NotBlank String q) {
         try {
             List<CategoryDTO> categories = categoryService.searchCategories(q).stream().map(c -> DtoMapper.toCategoryDTO(c, false)).toList();
             return ResponseEntity.ok(categories);
@@ -152,16 +160,13 @@ public class CategoryController {
     // Paginated categories
     @GetMapping("/page")
     public ResponseEntity<?> getCategoriesPage(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) int size,
             @RequestParam(defaultValue = "id,desc") String sort
     ) {
         try {
             // Basic validation for page/size
-            if (page < 0) {
-                return ResponseEntity.badRequest().body("page must be >= 0");
-            }
-            if (size < 1 || size > 100) {
+            if (size > 100) {
                 return ResponseEntity.badRequest().body("size must be between 1 and 100");
             }
 
